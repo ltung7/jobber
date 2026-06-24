@@ -1,0 +1,47 @@
+{
+	"name": "juliette",
+	"private": true,
+	"version": "0.0.8",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"deploy": "vite build && node build.js && gcloud app deploy build/app.yaml --project=ecomsupportapp && npm --no-git-tag-version version patch",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-auto": "^7.0.0",
+		"@sveltejs/kit": "2.34",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@types/nodemailer": "^8.0.1",
+		"svelte": "^5.56.1",
+		"svelte-check": "^4.6.0",
+		"typescript": "^6.0.3",
+		"vite": "^7.3.1"
+	},
+	"dependencies": {
+		"@google-cloud/bigquery": "^8.3.1",
+		"@google/generative-ai": "^0.24.1",
+		"@sveltestrap/sveltestrap": "^7.1.0",
+		"@types/node": "^25.9.3",
+		"axios": "^1.18.0",
+		"dayjs": "^1.11.21",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-svelte": "^3.19.0",
+		"eslit": "^6.0.0",
+		"firebase": "^12.15.0",
+		"firebase-admin": "^13.10.0",
+		"globals": "^17.6.0",
+		"mysql-bricks": "^2.0.0",
+		"nodemailer": "^9.0.1",
+		"prettier": "^3.8.4",
+		"prettier-plugin-svelte": "^4.1.1",
+		"sql-bricks": "^3.0.1",
+		"svelte-adapter-appengine": "^1.2.0",
+		"typescript-eslint": "^8.61.1",
+		"vitest": "^4.1.9"
+	}
+}

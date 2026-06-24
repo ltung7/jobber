@@ -1,0 +1,26 @@
+# Dependency directories
+node_modules/
+.svelte-kit/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+app.yaml
+
+# Build and output directories
+build/
+dist/
+.vercel/
+.netlify/
+
+# Static assets (usually don't need indexing for code logic)
+static/
+autotest/
+data/
+**/*.{png,jpg,jpeg,gif,svg,ico,webp}
+
+# System and logs
+.DS_Store
+*.log
+*.html
+.env
+.env.*
