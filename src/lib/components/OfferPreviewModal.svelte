@@ -19,9 +19,9 @@
 		const t = T_LABELS[lang];
 		const dateStr = d.availableFrom ? new Date(d.availableFrom).toLocaleDateString('en-GB') : '';
 		const now = new Date().toLocaleDateString('en-GB');
-let rate = `${d.rateTo} PLN per hour ${d.rateNet ? 'net' : 'gross'}`
+		let rate = `${d.rateTo} PLN per hour ${d.rateNet ? 'net' : 'gross'}`;
 		if (d.rateFrom !== d.rateTo) rate = `from ${d.rateFrom} to ` + rate;
-		
+
 		const row = (label: string, val: string) => (val ? `<div style="margin-bottom:8px;"><strong style="font-size:10px;color:#005258;text-transform:uppercase;letter-spacing:0.06em;">${label}:</strong><br><span style="font-size:13px;">${val.replace(/\n/g, '<br>')}</span></div>` : '');
 		const sec = (label: string, val: string) => (val ? `<div style="margin-bottom:14px;"><div style="font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#fff;background:#005258;padding:4px 10px;border-radius:4px;display:inline-block;margin-bottom:8px;">${label}</div><div style="font-size:13px;color:#002B49;">${val.replace(/\n/g, '<br>')}</div></div>` : '');
 
@@ -42,7 +42,7 @@ let rate = `${d.rateTo} PLN per hour ${d.rateNet ? 'net' : 'gross'}`
         ${row(t.contract, CONTRACT_OPTION_LIST_EN[d.contractType])}
         ${row(t.shifts, SHIFT_OPTION_LIST_EN[d.shift])}
         ${row(t.housing, ACCOMMODATION_OPTION_LIST[d.accommodation])}
-        ${row(t.benefits, d.benefits.map(item => BENEFITS_LIST[item]).join(', '))}
+        ${row(t.benefits, d.benefits.map((item) => BENEFITS_LIST[item]).join(', '))}
       </div>
       ${sec(t.workplaceDesc, d.workplaceDesc)}
       ${sec(t.requirements, d.requirements)}
@@ -59,7 +59,7 @@ let rate = `${d.rateTo} PLN per hour ${d.rateNet ? 'net' : 'gross'}`
 	}
 
 	function buildMessengerText(d: JobFormData): string {
-		let rate = `${d.rateTo} PLN per hour ${d.rateNet ? 'net' : 'gross'}`
+		let rate = `${d.rateTo} PLN per hour ${d.rateNet ? 'net' : 'gross'}`;
 		if (d.rateFrom !== d.rateTo) rate = `from ${d.rateFrom} to ` + rate;
 		const dateStr = d.availableFrom ? new Date(d.availableFrom).toLocaleDateString('en-GB') : 'Immediately';
 		let msg = `💼 *JOB OFFER — EISG*\n`;
@@ -71,7 +71,7 @@ let rate = `${d.rateTo} PLN per hour ${d.rateNet ? 'net' : 'gross'}`
 		if (d.shift) msg += `🕐 *Shifts:* ${SHIFT_OPTION_LIST_EN[d.shift]}\n`;
 		msg += `📅 *Available from:* ${dateStr}\n`;
 		if (d.accommodation) msg += `🏠 *Accommodation:* ${ACCOMMODATION_OPTION_LIST[d.accommodation]}\n`;
-		if (d.benefits) msg += `🎁 *Benefits:* ${d.benefits.map(item => BENEFITS_LIST[item]).join(', ')}\n`;
+		if (d.benefits) msg += `🎁 *Benefits:* ${d.benefits.map((item) => BENEFITS_LIST[item]).join(', ')}\n`;
 		if (d.workplaceDesc) msg += `\n🏭 *About the workplace:*\n${d.workplaceDesc}\n`;
 		if (d.requirements) msg += `\n✅ *Requirements:*\n${d.requirements}\n`;
 		if (d.duties) msg += `\n📌 *Duties:*\n${d.duties}\n`;
@@ -164,7 +164,7 @@ let rate = `${d.rateTo} PLN per hour ${d.rateNet ? 'net' : 'gross'}`
 
 		<div class="modal-tabs">
 			<button class="modal-tab d-flex align-items-center justify-content-center {previewTab === 'offer' ? 'active' : ''}" onclick={() => (previewTab = 'offer')}>
-				<UIcon name="eye"class="me-2" /> Podgląd oferty
+				<UIcon name="eye" class="me-2" /> Podgląd oferty
 			</button>
 			<button class="modal-tab d-flex align-items-center justify-content-center {previewTab === 'msg' ? 'active' : ''}" onclick={() => (previewTab = 'msg')}>
 				<UIcon name="comment" class="me-2" /> Komunikator (EN)
