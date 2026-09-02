@@ -1,20 +1,72 @@
 export const CONTRACT_OPTIONS = ['Umowa o pracę / Contract of employment', 'Umowa zlecenie / Civil law contract', 'Umowa o dzieło / Contract for specific work'];
 export const SHIFT_OPTIONS = ['Jedna zmiana / Day shift', 'Dwie zmiany / Two shifts', 'Trzy zmiany / Three shifts (24/7)', 'Do ustalenia / To be agreed'];
 
+export const CONTRACT_OPTION_LIST: Record<ContractType, string> = {
+    uop: 'Umowa o pracę / Contract of employment',
+    uoz: 'Umowa zlecenie / Civil law contract',
+    uod: 'Umowa o dzieło / Contract for specific work'
+}
+
+export const SHIFT_OPTION_LIST: Record<ShiftType, string> = {
+    one: 'Jedna zmiana / Day shift',
+    two: 'Dwie zmiany / Two shifts',
+    three: 'Trzy zmiany / Three shifts (24/7)',
+    agree: 'Do ustalenia / To be agreed',
+    flex: 'Elastyczna / Flexible shifts'
+}
+
+export const CONTRACT_OPTION_LIST_EN: Record<ContractType, string> = {
+    uop: 'Contract of employment',
+    uoz: 'Civil law contract',
+    uod: 'Contract for specific work'
+}
+
+export const SHIFT_OPTION_LIST_EN: Record<ShiftType, string> = {
+    one: 'Day shift',
+    two: 'Two shifts',
+    three: 'Three shifts (24/7)',
+    agree: 'To be agreed',
+    flex: 'Flexible shifts'
+}
+
+export const ACCOMMODATION_OPTION_LIST: Record<AccommodationType, string> = {
+    '': 'Accommodation not provided',
+    free: 'Free accommodation fully covered by the employer.',
+    subsidized: 'Subsidized housing with partial costs deducted from salary.',
+    hostel: 'Standard worker hostel room shared with colleagues.',
+    apartment: 'Company-rented apartment shared in a smaller group.',
+    allowance: 'Monthly housing allowance for renting independently.',
+    couples: 'Dedicated room for couples or qualified specialists.',
+    hotel: 'Temporary hotel accommodation for the initial trial period.'
+};
+
+export const BENEFITS_LIST: Record<BenefitType, string> = {
+    training: 'Full on-the-job training provided with no prior experience required',
+    accommodation: 'Free accommodation near the place of work provided',
+    transport: 'Free transport to and from the workplace',
+    meals: 'Free meals provided during shifts',
+    clothing: 'Free work clothing and protective gear provided',
+    legalization: 'Free legalization support for work permits and residence',
+    formalities: 'Full assistance with all employment formalities',
+    stability: 'Stable long-term employment opportunities',
+    salary: 'Competitive salary with guaranteed timely payments',
+    environment: 'Friendly working environment with dedicated coordinator support'
+};
+
 export const LANGUAGES = {
     en: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/en.svg" alt="English" title="English" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> English',
     pl: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/pl.svg" alt="Polski" title="Polski" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Polski',
     hi: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/in.svg" alt="Hindi" title="Hindi" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Hindi',
     ne: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/ne.svg" alt="Nepali" title="Nepali" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Nepali',
-    hr: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/hr.svg" alt="Croatian" title="Croatian" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Croatian',
+    // hr: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/hr.svg" alt="Croatian" title="Croatian" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Croatian',
     uk: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/ua.svg" alt="Ukrainian" title="Ukrainian" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Ukrainian',
-    be: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/by.svg" alt="Belarusian" title="Belarusian" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Belarusian',
+    // be: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/by.svg" alt="Belarusian" title="Belarusian" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Belarusian',
     tl: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/ph.svg" alt="Filipino" title="Filipino" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Filipino',
-    es: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/co.svg" alt="Spanish" title="Spanish" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Spanish (Colombia)',
-    uz: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/uz.svg" alt="Uzbek" title="Uzbek" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Uzbek',
+    // es: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/co.svg" alt="Spanish" title="Spanish" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Spanish (Colombia)',
+    // uz: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/uz.svg" alt="Uzbek" title="Uzbek" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Uzbek',
     bn: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/bd.svg" alt="Bengali" title="Bengali" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Bengali',
-    ka: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/ge.svg" alt="Georgian" title="Georgian" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Georgian',
-    ro: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/md.svg" alt="Romanian" title="Romanian" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Romanian',
+    // ka: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/ge.svg" alt="Georgian" title="Georgian" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Georgian',
+    // ro: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/md.svg" alt="Romanian" title="Romanian" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Romanian',
 }
 
 export const T_LABELS = {
@@ -22,13 +74,13 @@ export const T_LABELS = {
     pl: { name: "Polski", offerTitle: 'OFERTA PRACY', position: 'Stanowisko', location: 'Miejsce pracy', available: 'Dostępne od', housing: 'Zakwaterowanie', rate: 'Stawka godzinowa', contract: 'Rodzaj umowy', shifts: 'Zmianowość', benefits: 'Benefity', workplaceDesc: 'Opis miejsca pracy', requirements: 'Wymagania', duties: 'Obowiązki', extra: 'Dodatkowe informacje', contact: 'Kontakt', ref: 'Nr oferty', footer: 'EISG — Outsourcing Procesów Produkcyjnych i Logistycznych' },
     hi: { name: "Hindi", offerTitle: 'नौकरी का प्रस्ताव', position: 'पद', location: 'कार्यस्थल', available: 'उपलब्धता से', housing: 'आवास', rate: 'प्रति घंटा वेतन', contract: 'अनुबंध प्रकार', shifts: 'पाली', benefits: 'लाभ', workplaceDesc: 'कार्यस्थल का विवरण', requirements: 'आवश्यकताएँ', duties: 'कर्तव्य', extra: 'अतिरिक्त जानकारी', contact: 'संपर्क', ref: 'प्रस्ताव संख्या', footer: 'EISG — उत्पादन और लॉजिस्टिक्स आउटसोर्सिंग' },
     ne: { name: "Nepali", offerTitle: 'जागिरको प्रस्ताव', position: 'पद', location: 'कार्यस्थल', available: 'उपलब्ध मिति', housing: 'आवास', rate: 'प्रति घन्टा तलब', contract: 'अनुबन्ध प्रकार', shifts: 'सिफ्ट', benefits: 'सुविधाहरू', workplaceDesc: 'कार्यस्थलको विवरण', requirements: 'आवश्यकताहरू', duties: 'कर्तव्यहरू', extra: 'थप जानकारी', contact: 'सम्पर्क', ref: 'प्रस्ताव नम्बर', footer: 'EISG — उत्पादन र लजिस्टिक्स आउटसोर्सिङ' },
-    hr: { name: "Croatian", offerTitle: 'POSLOVNA PONUDA', position: 'Pozicija', location: 'Lokacija posla', available: 'Dostupno od', housing: 'Smještaj', rate: 'Satnica', contract: 'Vrsta ugovora', shifts: 'Raspored smjena', benefits: 'Benefiti', workplaceDesc: 'Opis radnog mjesta', requirements: 'Zahtjevi', duties: 'Dužnosti', extra: 'Dodatne informacije', contact: 'Kontakt', ref: 'Referenca ponude', footer: 'EISG — Production & Logistics Process Outsourcing' },
+    // hr: { name: "Croatian", offerTitle: 'POSLOVNA PONUDA', position: 'Pozicija', location: 'Lokacija posla', available: 'Dostupno od', housing: 'Smještaj', rate: 'Satnica', contract: 'Vrsta ugovora', shifts: 'Raspored smjena', benefits: 'Benefiti', workplaceDesc: 'Opis radnog mjesta', requirements: 'Zahtjevi', duties: 'Dužnosti', extra: 'Dodatne informacije', contact: 'Kontakt', ref: 'Referenca ponude', footer: 'EISG — Production & Logistics Process Outsourcing' },
     uk: { name: "Ukrainian", offerTitle: 'ПРОПОЗИЦІЯ РОБОТИ', position: 'Посада', location: 'Місце роботи', available: 'Доступно з', housing: 'Проживання', rate: 'Погодинна ставка', contract: 'Тип контракту', shifts: 'Графік змін', benefits: 'Переваги', workplaceDesc: 'Опис робочого місця', requirements: 'Вимоги', duties: 'Обов’язки', extra: 'Додаткова інформація', contact: 'Контакт', ref: 'Посилання на пропозицію', footer: 'EISG — Production & Logistics Process Outsourcing' },
-    be: { name: "Belarusian", offerTitle: 'ПРАПОЗІЦЫЯ РАБАТЫ', position: 'Пасада', location: 'Месца працы', available: 'Даступна з', housing: 'Жыхарства', rate: 'Гадзінная стаўка', contract: 'Тып кантракту', shifts: 'Графік змен', benefits: 'Перавагі', workplaceDesc: 'Апісанне працоўнага месца', requirements: 'Патрабаванні', duties: 'Абавязкі', extra: 'Дадатковая інфармацыя', contact: 'Кантакт', ref: 'Рэф. прапановы', footer: 'EISG — Production & Logistics Process Outsourcing' },
+    // be: { name: "Belarusian", offerTitle: 'ПРАПОЗІЦЫЯ РАБАТЫ', position: 'Пасада', location: 'Месца працы', available: 'Даступна з', housing: 'Жыхарства', rate: 'Гадзінная стаўка', contract: 'Тып кантракту', shifts: 'Графік змен', benefits: 'Перавагі', workplaceDesc: 'Апісанне працоўнага месца', requirements: 'Патрабаванні', duties: 'Абавязкі', extra: 'Дадатковая інфармацыя', contact: 'Кантакт', ref: 'Рэф. прапановы', footer: 'EISG — Production & Logistics Process Outsourcing' },
     tl: { name: "Filipino", offerTitle: 'ALOK NG TRABAHO', position: 'Posisyon', location: 'Lokasyon ng Trabaho', available: 'Magagamit Mula', housing: 'Tirahan', rate: 'Oras na Rate', contract: 'Uri ng Kontrata', shifts: 'Oras ng Shift', benefits: 'Benepisyo', workplaceDesc: 'Deskripsyon ng Trabaho', requirements: 'Mga Kailangan', duties: 'Mga Gawain', extra: 'Karagdagang Impormasyon', contact: 'Kontak', ref: 'Ref. ng Alok', footer: 'EISG — Production & Logistics Process Outsourcing' },
-    es: { name: "Spanish (Colombia)", offerTitle: 'OFERTA DE EMPLEO', position: 'Posición', location: 'Lugar de Trabajo', available: 'Disponible Desde', housing: 'Alojamiento', rate: 'Tarifa por Hora', contract: 'Tipo de Contrato', shifts: 'Turnos', benefits: 'Beneficios', workplaceDesc: 'Descripción del Lugar de Trabajo', requirements: 'Requisitos', duties: 'Deberes', extra: 'Información Adicional', contact: 'Contacto', ref: 'Ref. de Oferta', footer: 'EISG — Production & Logistics Process Outsourcing' },
-    uz: { name: "Uzbek", offerTitle: 'ISH TAKLIFI', position: 'Lavozim', location: 'Ish Joyi', available: 'Boshlanish Sanasi', housing: 'Turar joy', rate: 'Soatlik maosh', contract: 'Shartnoma turi', shifts: 'Smena jadvali', benefits: 'Imtiyozlar', workplaceDesc: 'Ish joyi tavsifi', requirements: 'Talablar', duties: 'Majburiyatlar', extra: 'Qo‘shimcha ma`lumot', contact: 'Aloqa', ref: 'Taklif raqami', footer: 'EISG — Production & Logistics Process Outsourcing' },
+    // es: { name: "Spanish (Colombia)", offerTitle: 'OFERTA DE EMPLEO', position: 'Posición', location: 'Lugar de Trabajo', available: 'Disponible Desde', housing: 'Alojamiento', rate: 'Tarifa por Hora', contract: 'Tipo de Contrato', shifts: 'Turnos', benefits: 'Beneficios', workplaceDesc: 'Descripción del Lugar de Trabajo', requirements: 'Requisitos', duties: 'Deberes', extra: 'Información Adicional', contact: 'Contacto', ref: 'Ref. de Oferta', footer: 'EISG — Production & Logistics Process Outsourcing' },
+    // uz: { name: "Uzbek", offerTitle: 'ISH TAKLIFI', position: 'Lavozim', location: 'Ish Joyi', available: 'Boshlanish Sanasi', housing: 'Turar joy', rate: 'Soatlik maosh', contract: 'Shartnoma turi', shifts: 'Smena jadvali', benefits: 'Imtiyozlar', workplaceDesc: 'Ish joyi tavsifi', requirements: 'Talablar', duties: 'Majburiyatlar', extra: 'Qo‘shimcha ma`lumot', contact: 'Aloqa', ref: 'Taklif raqami', footer: 'EISG — Production & Logistics Process Outsourcing' },
     bn: { name: "Bengali", offerTitle: 'চাকরির প্রস্তাব', position: 'পদবী', location: 'কাজের জায়গা', available: 'উপলব্ধতা তারিখ', housing: 'আবাসন', rate: 'ঘণ্টা প্রতি বেতন', contract: 'চুক্তির ধরন', shifts: 'শিফট', benefits: 'সুবিধা', workplaceDesc: 'কাজের জায়গার বর্ণনা', requirements: 'প্রয়োজনীয়তা', duties: 'দায়িত্ব', extra: 'অতিরিক্ত তথ্য', contact: 'যোগাযোগ', ref: 'প্রস্তাব রেফারেন্স', footer: 'EISG — Production & Logistics Process Outsourcing' },
-    ka: { name: "Georgian", offerTitle: 'სამუშაო შეთავაზება', position: 'პოზიცია', location: 'სამუშაო ადგილამა', available: 'ხელმისაწვდომი დაწყებით', housing: 'საცხოვრებელი ადგილი', rate: 'საათობრივი განაკვეთი', contract: 'კონტრაქტის ტიპი', shifts: 'შეფუთები', benefits: 'სარგებლობები', workplaceDesc: 'სამუშაო ადგილის აღწერა', requirements: 'მოთხოვნები', duties: 'დირეკები', extra: 'დამატებითი ინფორმაცია', contact: 'კონტაქტი', ref: 'შეთავაზების Ref.', footer: 'EISG — Production & Logistics Process Outsourcing' },
-    ro: { name: "Romanian", offerTitle: 'OFERTĂ DE LOC DE MUNCĂ', position: 'Poziție', location: 'Locație de muncă', available: 'Disponibil din', housing: 'Cazare', rate: 'Rată pe oră', contract: 'Tip de contract', shifts: 'Programul schimburilor', benefits: 'Beneficii', workplaceDesc: 'Descrierea locului de muncă', requirements: 'Cerințe', duties: 'Responsabilități', extra: 'Informații adiționale', contact: 'Contact', ref: 'Ref. ofertă', footer: 'EISG — Production & Logistics Process Outsourcing' }
+    // ka: { name: "Georgian", offerTitle: 'სამუშაო შეთავაზება', position: 'პოზიცია', location: 'სამუშაო ადგილამა', available: 'ხელმისაწვდომი დაწყებით', housing: 'საცხოვრებელი ადგილი', rate: 'საათობრივი განაკვეთი', contract: 'კონტრაქტის ტიპი', shifts: 'შეფუთები', benefits: 'სარგებლობები', workplaceDesc: 'სამუშაო ადგილის აღწერა', requirements: 'მოთხოვნები', duties: 'დირეკები', extra: 'დამატებითი ინფორმაცია', contact: 'კონტაქტი', ref: 'შეთავაზების Ref.', footer: 'EISG — Production & Logistics Process Outsourcing' },
+    // ro: { name: "Romanian", offerTitle: 'OFERTĂ DE LOC DE MUNCĂ', position: 'Poziție', location: 'Locație de muncă', available: 'Disponibil din', housing: 'Cazare', rate: 'Rată pe oră', contract: 'Tip de contract', shifts: 'Programul schimburilor', benefits: 'Beneficii', workplaceDesc: 'Descrierea locului de muncă', requirements: 'Cerințe', duties: 'Responsabilități', extra: 'Informații adiționale', contact: 'Contact', ref: 'Ref. ofertă', footer: 'EISG — Production & Logistics Process Outsourcing' }
 } as const;

@@ -1,4 +1,3 @@
-import type { StatusBar } from "$lib/server/services/firestatus.service";
 import dayjs from "dayjs";
 
 type DatesRangeType = {
@@ -43,7 +42,7 @@ export const getComparable = (dates : DatesRangeType) => {
 
 export const dateDiff = (from : dayjs.ConfigType, to : dayjs.ConfigType) => dayjs(to).diff(dayjs(from), 'days');
 
-export const loopThroughDates = async (from: dayjs.ConfigType, to: dayjs.ConfigType, callback: (_date: string) => Promise<any>, status?: StatusBar) => {
+export const loopThroughDates = async (from: dayjs.ConfigType, to: dayjs.ConfigType, callback: (_date: string) => Promise<any>, status?: any) => {
     let cursorDate = dayjs(from);
     const endDate = dayjs(to);
     if (status) {

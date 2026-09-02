@@ -1,5 +1,5 @@
 <script lang="ts">
-	import UIcon from "$lib/misc/UIcon.svelte";
+	import UIcon from '$lib/misc/UIcon.svelte';
 
 	interface Props {
 		archivedOffers: ArchiveEntry[];
@@ -9,20 +9,20 @@
 </script>
 
 <div class="mb-4">
-	<h1 class="fs-5 fw-semibold mb-1">Archiwum PDF</h1>
-	<p class="text-muted" style="font-size:13px;">Historia wygenerowanych plików PDF.</p>
+	<h1 class="fs-5 fw-semibold mb-1">PDF Archive</h1>
+	<p class="text-muted" style="font-size:13px;">History of generated PDF files.</p>
 </div>
 <div class="form-card" style="padding:0;overflow:hidden;">
 	{#if archivedOffers.length === 0}
 		<div class="empty-state">
 			<UIcon name="box" size={1} />
-			<p>Brak wygenerowanych PDF.<br />Wygeneruj pierwszą ofertę.</p>
+			<p>No generated PDFs.<br />Generate your first offer.</p>
 		</div>
 	{:else}
 		<table class="data-table">
 			<thead
 				><tr>
-					<th>Nr oferty</th><th>Stanowisko</th><th>Lokalizacja</th><th>Stawka</th><th>Języki</th><th>Data wygenerowania</th><th></th>
+					<th>Offer Ref.</th><th>Position</th><th>Location</th><th>Rate</th><th>Languages</th><th>Date Generated</th><th></th>
 				</tr></thead
 			>
 			<tbody>
@@ -31,10 +31,10 @@
 						<td style="color:#4a6072;font-size:12px;">{entry.offerRef || '—'}</td>
 						<td><strong>{entry.jobType}</strong></td>
 						<td style="color:#4a6072;">{entry.location}</td>
-						<td style="color:#16a34a;font-weight:600;">{entry.rate}</td>
+						<td style="color:#16a34a;font-weight:600;">{entry.rateTo}</td>
 						<td><span class="lang-badge lb-en">{entry.langs}</span></td>
-						<td style="color:#4a6072;font-size:12px;">{new Date(entry.createdAt ?? entry.availableFrom).toLocaleDateString('pl-PL')}</td>
-						<td><button class="btn btn-eisg-danger btn-sm" onclick={() => deleteArchive(entry.id)}>Usuń</button></td>
+						<td style="color:#4a6072;font-size:12px;">{new Date(entry.createdAt ?? entry.availableFrom).toLocaleDateString('en-GB')}</td>
+						<td><button class="btn btn-eisg-danger btn-sm" onclick={() => deleteArchive(entry.id)}>Delete</button></td>
 					</tr>
 				{/each}
 			</tbody>

@@ -17,27 +17,27 @@
 <svelte:window bind:scrollY />
 
 <nav class="sidebar" class:scrolled>
-	<div class="sidebar-section">Narzędzia</div>
+	<div class="sidebar-section">Tools</div>
 
 	<button class="sidebar-item {activeView === 'generator' ? 'active' : ''}" onclick={() => navigateTo('generator')}>
 		<UIcon name="table-layout" />
-		Nowy formularz
+		New Form
 	</button>
 
 	<button class="sidebar-item {activeView === 'saved' ? 'active' : ''}" onclick={() => navigateTo('saved')}>
 		<UIcon name="disk" />
-		Oferty zapisane
+		Saved Offers
 		<span class="badge-count">{savedOffersCount}</span>
 	</button>
 
 	<button class="sidebar-item {activeView === 'archive' ? 'active' : ''}" onclick={() => navigateTo('archive')}>
 		<UIcon name="box" />
-		Archiwum PDF
-		<span class="badge-count">{loadedArchive ? archivedOffersCount : "?"}</span>
+		PDF Archive
+		<span class="badge-count">{loadedArchive ? archivedOffersCount : '?'}</span>
 	</button>
 
 	<div class="sidebar-settings">
-		<div class="sidebar-section">Konfiguracja</div>
+		<div class="sidebar-section">Configuration</div>
 		<button class="sidebar-item {activeView === 'feedback' ? 'active' : ''}" onclick={() => navigateTo('feedback')}>
 			<UIcon name="comment" />
 			Feedback

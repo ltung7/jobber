@@ -41,12 +41,16 @@ declare global {
 		type FirebaseOrderQuery<K extends string = string> = [K, 'asc' | 'desc'] | false;
 	}
 
-	type Lang = 'en' | 'pl' | 'hi' | 'ne' | 'hr' | 'uk' | 'be' | 'tl' | 'es' | 'uz' | 'bn' | 'ka' | 'ro';
+	// type Lang = 'en' | 'pl' | 'hi' | 'ne' | 'hr' | 'uk' | 'be' | 'tl' | 'es' | 'uz' | 'bn' | 'ka' | 'ro';
+	type Lang = 'en' | 'pl' | 'hi' | 'ne' | 'uk' | 'tl' | 'bn';
 	type View = 'generator' | 'saved' | 'archive' | 'settings' | 'feedback';
 	type PreviewTab = 'offer' | 'msg';
 	type ToastType = 'success' | 'info';
 
-	
+	type ContractType = 'uop' | 'uoz' | 'uod';
+	type ShiftType = 'one' | 'two' | 'three' | 'agree' | 'flex';
+	type AccommodationType = '' | 'free' | 'subsidized' | 'hostel' | 'apartment' | 'allowance' | 'couples' | 'hotel';
+	type BenefitType = 'training' | 'accommodation' | 'transport' | 'meals' | 'clothing' | 'legalization' | 'formalities' | 'stability'| 'salary'| 'environment';
 
 	// Props for components that accept an active view
 	interface FeedbackRequestProps {
@@ -66,21 +70,22 @@ declare global {
 	interface JobFormData {
 		jobType: string;
 		location: string;
+		city: string;
 		availableFrom: string;
-		housing: string;
-		rate: string;
-		contract: string;
-		shifts: string;
+		accommodation: AccommodationType;
+		// rate: string;
+		rateFrom: number;
+		rateTo: number;
+		rateNet: boolean;
+		contractType: ContractType;
+		shift: ShiftType;
+		benefits: BenefitType[], 
 		benefits: string;
 		workplaceDesc: string;
 		requirements: string;
 		duties: string;
 		extra: string;
-		recruiterName: string;
-		recruiterPhone: string;
-		recruiterEmail: string;
 		offerRef: string;
-		sheetsUrl: string;
 		langExtra: Lang;
 	}
 

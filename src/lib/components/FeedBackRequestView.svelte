@@ -54,30 +54,43 @@
 
 <div class="page-header mb-4">
 	<h1 class="fs-5 fw-semibold mb-1">Feedback</h1>
-	<p class="text-muted" style="font-size:13px;">Wyślij feedback lub zgłoś problem z aplikacją.</p>
+	<p class="text-muted" style="font-size:13px;">Send feedback or report an issue with the application.</p>
 </div>
 
-<form onsubmit={(event) => { event.preventDefault(); sendFeedback() }}>
+<form
+	onsubmit={(event) => {
+		event.preventDefault();
+		sendFeedback();
+	}}
+>
 	<div class="position-relative">
 		<div class="form-card">
 			<div class="form-card-title">Feedback</div>
 			<div class="row g-3">
 				<div class="col-12">
-					<label class="field-label" for="feedback-content"> Treść Twojej wiadomości – opisz zauważony błąd lub podziel się opinią </label>
-					<textarea id="feedback-content" class="form-control" rows="10" bind:value={message} placeholder="Szczegółowy opis problemu, kroki do odtworzenia błędu lub konstruktywna opinia na temat funkcjonalności..."></textarea>
+					<label class="field-label" for="feedback-content"> Your message content – describe the bug found or share your opinion </label>
+					<textarea id="feedback-content" class="form-control" rows="10" bind:value={message} placeholder="Detailed description of the issue, steps to reproduce the bug, or constructive feedback on functionality..."></textarea>
 				</div>
 
 				<div class="col-12">
-					<label class="field-label" for="feedback-email"> Twój adres e-mail – byśmy mogli odpowiedzieć </label>
-					<input id="feedback-email" type="email" class="form-control" bind:value={email} placeholder="np. jan.kowalski@example.com" />
+					<label class="field-label" for="feedback-email"> Your email address – so we can reply </label>
+					<input id="feedback-email" type="email" class="form-control" bind:value={email} placeholder="e.g. john.doe@example.com" />
 				</div>
 			</div>
 		</div>
 		{#if sent}
 			<div class="position-absolute top-0 start-0 w-100 h-100 flex-center flex-column bg-white z-index-5 d-flex justify-content-center align-items-center" transition:fade style="border-radius: 12px;">
-				<h3 class="text-center text-success">Dziekujemy za feedback</h3>
-				<a href="#reset" class="text-secondary small" onclick={(e) => { e.preventDefault(); sent = false; sending = false; }}>
-					[Wyślij ponownie]
+				<h3 class="text-center text-success">Thank you for your feedback</h3>
+				<a
+					href="#reset"
+					class="text-secondary small"
+					onclick={(e) => {
+						e.preventDefault();
+						sent = false;
+						sending = false;
+					}}
+				>
+					[Send again]
 				</a>
 			</div>
 		{/if}
@@ -87,7 +100,7 @@
 	<div class="d-flex gap-2 justify-content-end mt-2 mb-4">
 		<button class="btn btn-primary" onclick={sendFeedback} disabled={sent || sending}>
 			<UIcon name="envelope" />
-			Wyślij feedback
+			Send feedback
 		</button>
 	</div>
 </form>

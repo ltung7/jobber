@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { addToast } from '$lib/toast';
 	import { onMount } from 'svelte';
-	import { T_LABELS } from './const';
+	import { ACCOMMODATION_OPTION_LIST, BENEFITS_LIST, CONTRACT_OPTION_LIST_EN, SHIFT_OPTION_LIST_EN, T_LABELS } from './const';
 	import UIcon from '$lib/misc/UIcon.svelte';
 
 	interface Props {
@@ -19,7 +19,9 @@
 		const t = T_LABELS[lang];
 		const dateStr = d.availableFrom ? new Date(d.availableFrom).toLocaleDateString('en-GB') : '';
 		const now = new Date().toLocaleDateString('en-GB');
-
+let rate = `${d.rateTo} PLN per hour ${d.rateNet ? 'net' : 'gross'}`
+		if (d.rateFrom !== d.rateTo) rate = `from ${d.rateFrom} to ` + rate;
+		
 		const row = (label: string, val: string) => (val ? `<div style="margin-bottom:8px;"><strong style="font-size:10px;color:#005258;text-transform:uppercase;letter-spacing:0.06em;">${label}:</strong><br><span style="font-size:13px;">${val.replace(/\n/g, '<br>')}</span></div>` : '');
 		const sec = (label: string, val: string) => (val ? `<div style="margin-bottom:14px;"><div style="font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#fff;background:#005258;padding:4px 10px;border-radius:4px;display:inline-block;margin-bottom:8px;">${label}</div><div style="font-size:13px;color:#002B49;">${val.replace(/\n/g, '<br>')}</div></div>` : '');
 
@@ -32,15 +34,15 @@
         <div style="font-size:11px;color:#888;text-align:right;">${now}${d.offerRef ? '<br><span style="color:#005258;font-weight:700;">' + t.ref + ': ' + d.offerRef + '</span>' : ''}</div>
       </div>
       <div style="font-size:19px;font-weight:800;color:#002B49;margin-bottom:4px;">${d.jobType}</div>
-      <div style="font-size:13px;color:#005258;margin-bottom:16px;font-weight:600;">📍 ${d.location}</div>
+      <div style="font-size:13px;color:#005258;margin-bottom:16px;font-weight:600;">📍 ${d.location}, ${d.city}</div>
       <div style="background:#e6f2f2;border-left:4px solid #005258;padding:10px 14px;border-radius:0 6px 6px 0;font-weight:700;color:#002B49;margin-bottom:16px;">
-        💰 ${t.rate}: ${d.rate}${d.availableFrom ? '&nbsp;&nbsp;|&nbsp;&nbsp;📅 ' + t.available + ': ' + dateStr : ''}
+        💰 ${t.rate}: ${rate}${d.availableFrom ? '&nbsp;&nbsp;|&nbsp;&nbsp;📅 ' + t.available + ': ' + dateStr : ''}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-        ${row(t.contract, d.contract)}
-        ${row(t.shifts, d.shifts)}
-        ${row(t.housing, d.housing)}
-        ${row(t.benefits, d.benefits)}
+        ${row(t.contract, CONTRACT_OPTION_LIST_EN[d.contractType])}
+        ${row(t.shifts, SHIFT_OPTION_LIST_EN[d.shift])}
+        ${row(t.housing, ACCOMMODATION_OPTION_LIST[d.accommodation])}
+        ${row(t.benefits, d.benefits.map(item => BENEFITS_LIST[item]).join(', '))}
       </div>
       ${sec(t.workplaceDesc, d.workplaceDesc)}
       ${sec(t.requirements, d.requirements)}
@@ -48,9 +50,8 @@
       ${sec(t.extra, d.extra)}
       <div style="margin-bottom:14px;"><div style="font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#fff;background:#005258;padding:4px 10px;border-radius:4px;display:inline-block;margin-bottom:8px;">${t.contact}</div>
         <div style="font-size:13px;color:#002B49;">
-          ${d.recruiterName ? '<div>👤 ' + d.recruiterName + '</div>' : ''}
-          ${d.recruiterPhone ? '<div>📱 ' + d.recruiterPhone + '</div>' : ''}
-          ${d.recruiterEmail ? '<div>✉️ ' + d.recruiterEmail + '</div>' : ''}
+          <div>📱+48 22 266 20 22</div>
+          <div>✉️ info@eisg.pl</div>
         </div>
       </div>
       <div style="margin-top:20px;padding-top:12px;border-top:2px solid #C79100;font-size:11px;color:#005258;text-align:center;font-weight:600;letter-spacing:0.04em;">${t.footer}</div>
@@ -58,25 +59,26 @@
 	}
 
 	function buildMessengerText(d: JobFormData): string {
+		let rate = `${d.rateTo} PLN per hour ${d.rateNet ? 'net' : 'gross'}`
+		if (d.rateFrom !== d.rateTo) rate = `from ${d.rateFrom} to ` + rate;
 		const dateStr = d.availableFrom ? new Date(d.availableFrom).toLocaleDateString('en-GB') : 'Immediately';
 		let msg = `💼 *JOB OFFER — EISG*\n`;
 		if (d.offerRef) msg += `📋 Ref: ${d.offerRef}\n`;
 		msg += `\n🔧 *Position:* ${d.jobType}\n`;
-		msg += `📍 *Location:* ${d.location}\n`;
-		msg += `💰 *Rate:* ${d.rate}\n`;
-		if (d.contract) msg += `📄 *Contract:* ${d.contract}\n`;
-		if (d.shifts) msg += `🕐 *Shifts:* ${d.shifts}\n`;
+		msg += `📍 *Location:* ${d.location}, ${d.city}\n`;
+		msg += `💰 *Rate:* ${rate}\n`;
+		if (d.contractType) msg += `📄 *Contract:* ${CONTRACT_OPTION_LIST_EN[d.contractType]}\n`;
+		if (d.shift) msg += `🕐 *Shifts:* ${SHIFT_OPTION_LIST_EN[d.shift]}\n`;
 		msg += `📅 *Available from:* ${dateStr}\n`;
-		if (d.housing) msg += `🏠 *Accommodation:* ${d.housing}\n`;
-		if (d.benefits) msg += `🎁 *Benefits:* ${d.benefits}\n`;
+		if (d.accommodation) msg += `🏠 *Accommodation:* ${ACCOMMODATION_OPTION_LIST[d.accommodation]}\n`;
+		if (d.benefits) msg += `🎁 *Benefits:* ${d.benefits.map(item => BENEFITS_LIST[item]).join(', ')}\n`;
 		if (d.workplaceDesc) msg += `\n🏭 *About the workplace:*\n${d.workplaceDesc}\n`;
 		if (d.requirements) msg += `\n✅ *Requirements:*\n${d.requirements}\n`;
 		if (d.duties) msg += `\n📌 *Duties:*\n${d.duties}\n`;
 		if (d.extra) msg += `\nℹ️ *Additional info:*\n${d.extra}\n`;
 		msg += `\n📞 *Contact:*\n`;
-		if (d.recruiterName) msg += `👤 ${d.recruiterName}\n`;
-		if (d.recruiterPhone) msg += `📱 ${d.recruiterPhone}\n`;
-		if (d.recruiterEmail) msg += `✉️ ${d.recruiterEmail}\n`;
+		msg += `📱 +48 222 66 20 22\n`;
+		msg += `✉️ info@eisg.pl\n`;
 		msg += `\n—\nEISG — Production & Logistics Process Outsourcing`;
 		return msg;
 	}
