@@ -16,6 +16,11 @@ dist/
 static/
 autotest/
 data/
+messages/
+project.inlang/
+sc/
+src/lib/assets
+src/lib/paraglide
 **/*.{png,jpg,jpeg,gif,svg,ico,webp}
 
 # System and logs

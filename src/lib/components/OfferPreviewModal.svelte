@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { addToast } from '$lib/toast';
 	import { onMount } from 'svelte';
-	import { ACCOMMODATION_OPTION_LIST, BENEFITS_LIST, CONTRACT_OPTION_LIST_EN, SHIFT_OPTION_LIST_EN, T_LABELS } from './const';
+	import { ACCOMMODATION_OPTION_LIST, BENEFITS_LIST, CONTRACT_OPTION_LIST_EN, LANGUAGES, SHIFT_OPTION_LIST_EN, T_LABELS } from './const';
 	import UIcon from '$lib/misc/UIcon.svelte';
+	import CustomFormSelect from '$lib/misc/CustomFormSelect.svelte';
 
 	interface Props {
 		showPreviewModal: boolean;
@@ -14,6 +15,7 @@
 
 	let previewTab = $state<PreviewTab>('offer');
 	let pdfGenerating = $state(false);
+	let language: Lang = $state('en');
 
 	function buildOfferHTML(d: JobFormData, lang: Lang): string {
 		const t = T_LABELS[lang];
@@ -91,7 +93,7 @@
 	async function generatePDF() {
 		if (!previewData) return;
 		const d = previewData;
-		const lang = d.langExtra;
+		const lang = language;
 		pdfGenerating = true;
 
 		const container = document.createElement('div');
@@ -160,7 +162,6 @@
 		<!-- svelte-ignore a11y_consider_explicit_label -->
 		<button class="btn-close position-absolute" style="top:16px;right:16px;" onclick={() => (showPreviewModal = false)}></button>
 		<div class="modal-title">Podgląd oferty</div>
-		<div class="modal-sub">Język: {T_LABELS[previewData.langExtra].name} · 1 PDF</div>
 
 		<div class="modal-tabs">
 			<button class="modal-tab d-flex align-items-center justify-content-center {previewTab === 'offer' ? 'active' : ''}" onclick={() => (previewTab = 'offer')}>
@@ -172,9 +173,10 @@
 		</div>
 
 		{#if previewTab === 'offer'}
+			<CustomFormSelect list={LANGUAGES} bind:value={language} />
 			<div class="preview-scale-wrap">
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-				{@html `<div>${buildOfferHTML(previewData, previewData.langExtra)}</div>`}
+				{@html `<div>${buildOfferHTML(previewData, language)}</div>`}
 			</div>
 		{:else}
 			<div class="messenger-box">{buildMessengerText(previewData)}</div>
@@ -198,7 +200,7 @@
 					Generuję PDF...
 				{:else}
 					<UIcon name="download" />
-					Pobierz PDF ({previewData.langExtra.toUpperCase()})
+					Pobierz PDF ({language.toUpperCase()})
 				{/if}
 			</button>
 		</div>

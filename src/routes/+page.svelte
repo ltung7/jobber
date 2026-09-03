@@ -129,14 +129,14 @@
 			const response = await internal.patch('archive', savedOffer);
 			if (response.success) {
 				savedOffers = savedOffers.filter((item) => item.id !== savedOffer.id);
-				archivedOffers.unshift({ ...savedOffer, createdAt: new Date().toISOString(), langs: savedOffer.langExtra.toUpperCase() });
+				archivedOffers.unshift({ ...savedOffer, createdAt: new Date().toISOString(), langs: Object.keys(previewData.lang).join(',').toUpperCase() });
 			}
 			return;
 		}
 
 		const response = await internal.post('archive', previewData);
 		if (response.id) {
-			const archived: ArchiveEntry = { ...previewData, id: response.id, langs: previewData.langExtra.toUpperCase(), createdAt: new Date().toISOString() };
+			const archived: ArchiveEntry = { ...previewData, id: response.id, langs: Object.keys(previewData.lang).join(',').toUpperCase(), createdAt: new Date().toISOString() };
 			archivedOffers.unshift(archived);
 		}
 	}

@@ -6,7 +6,7 @@ export const addJobberOffersList = async (data: SavedOffer) => {
     return addItem(data, collectionName);
 }
 
-export const setJobberOffersList = async (id: string, data: SavedOffer) => {
+export const setJobberOffersList = async (id: string, data: Partial<SavedOffer>) => {
     return setItem(id, data, collectionName, true);
 }
 
@@ -41,7 +41,7 @@ export const archiveJobberOfferList = async (offer: SavedOffer) => {
             return;
         }
         const data = srcDoc.data() as SavedOffer;
-        const archivedData = { ...data, createdAt: new Date().toISOString(), langs: data.langExtra.toUpperCase() };
+        const archivedData = { ...data, createdAt: new Date().toISOString(), langs: Object.keys(data.lang).join(',').toUpperCase() };
         transaction.set(destRef, archivedData);
         transaction.delete(srcRef);
     });

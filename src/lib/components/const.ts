@@ -53,6 +53,8 @@ export const BENEFITS_LIST: Record<BenefitType, string> = {
     environment: 'Friendly working environment with dedicated coordinator support'
 };
 
+export const TRANSLATE_LANGS: Array<Lang> = [ 'pl', 'hi', 'ne', 'uk', 'tl' ];
+
 export const LANGUAGES = {
     en: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/en.svg" alt="English" title="English" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> English',
     pl: '<img src="https://storage.googleapis.com/feed-cdn-files/flags/pl.svg" alt="Polski" title="Polski" style="height: 21px; width: 28px;" class="flag border rounded" width="28" height="21"> Polski',

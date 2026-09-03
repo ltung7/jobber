@@ -103,7 +103,6 @@ body {
 
 /* Main */
 .main-area {
-	overflow-y: auto;
 	padding: 28px 32px;
 	background: #f5f6fa;
 }
@@ -549,6 +548,10 @@ label.field-label {
 .btn.btn-eisg-ghost:hover {
 	color: #002b49;
 	border-color: #005258;
+}
+.btn.btn-eisg-ghost.active {
+	background: #005258;
+	color: #fff;
 }
 .btn.btn-eisg-danger {
 	background: transparent;
