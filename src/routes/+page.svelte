@@ -207,7 +207,7 @@
 <!-- ─── EDIT MODAL ────────────────────────────────────────────────────── -->
 
 {#if showEditModal && editingOffer}
-	<EditOfferModal {editingOffer} close={() => (showEditModal = false)} save={saveEdit} />
+	<EditOfferModal {editingOffer} close={() => (showEditModal = false)} save={saveEdit} {openPreviewForm} />
 {/if}
 
 <!-- ─── CANDIDATES MODAL ───────────────────────────────────────────────── -->

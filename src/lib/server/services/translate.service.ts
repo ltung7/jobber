@@ -2,7 +2,6 @@ import { error } from '@sveltejs/kit';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GEMINI_API_KEY } from '$env/static/private';
 import { addAiLog } from '$lib/server/db/tables/ailogs.db';
-import saveJson from '$lib/utils/saveJson';
 
 export const ALLOWED_FIELDS: Array<keyof TranslatableJobInfo> = [
 	'workplaceDesc',

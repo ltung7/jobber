@@ -134,7 +134,7 @@ const serverPost = async (url: string, data: Record<string,any> = {}, config: Re
 
 const serverPatch = async (url: string, data: Record<string,any> = {}, config: Record<string,any> = {}) => serverPost(url, data, config, 'patch');
 
-export const confirmSuccess = async (promise: Promise<Record<string,any>>, message = 'Dane zostały zapisane') => {
+export const confirmSuccess = async (promise: Promise<Record<string,any>>, message = 'Data has been saved') => {
     const result = await promise;
     if (result?.success) addToast(message, 'success');
     return result;

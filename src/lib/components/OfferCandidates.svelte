@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { confirmSuccess, internal } from '$lib/nav/internal';
 	import { addToast } from '$lib/toast';
 	import { onMount, untrack } from 'svelte';
 
@@ -21,7 +20,7 @@
 
 	function addCandidate() {
 		if (!candidateForm.firstName && !candidateForm.lastName) {
-			addToast('Podaj imię lub nazwisko.');
+			addToast('Please enter a first name or last name.');
 			return;
 		}
 		offer.candidates.push({ ...candidateForm, addedAt: new Date().toISOString() });

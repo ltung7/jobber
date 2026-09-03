@@ -1,6 +1,5 @@
 <script lang="ts">
 	import UIcon from '$lib/misc/UIcon.svelte';
-	import { LANGUAGES, T_LABELS } from './const';
 	import RatePreview from './RatePreview.svelte';
 
 	interface Props {
@@ -31,7 +30,13 @@
         <table class="data-table">
             <thead
                 ><tr>
-                    <th>Offer Ref.</th><th>Position</th><th>Location</th><th>Rate</th><th>Language</th><th>Candidates</th><th>Date Saved</th><th></th>
+                    <th>Offer Ref.</th>
+                    <th>Position</th>
+                    <th>Location</th>
+                    <th>Rate</th>
+                    <th>Candidates</th>
+                    <th>Date Saved</th>
+                    <th></th>
                 </tr></thead
             >
             <tbody>
@@ -44,12 +49,6 @@
                         <td style="color:#4a6072;">{#if offer.location?.length}{offer.location}, {/if} {offer.city}</td>
                         <td style="min-width: 125px;">
                             <RatePreview rateFrom={offer.rateFrom} rateTo={offer.rateTo} rateNet={offer.rateNet} />
-                        </td>
-                        <td>
-                            <!-- TODO: Languages -->
-                            <!-- <span class="lang-badge lb-{offer.langExtra}" title={T_LABELS[offer.langExtra].name}>
-                                {@html LANGUAGES[offer.langExtra]}
-                            </span> -->
                         </td>
                         <td>
                             <button class="btn btn-eisg-ghost btn-sm" onclick={() => openCandidates(offer.id)}>

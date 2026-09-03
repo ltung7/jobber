@@ -564,3 +564,18 @@ label.field-label {
 i.fi {
 	line-height: 0.9 !important;
 }
+
+.form-check.form-switch.form-switch-big {
+  min-height: 2.25rem;
+  padding-left: 3.5rem;
+}
+
+.form-check.form-switch.form-switch-big .form-check-input {
+  width: 3rem;
+  height: 1.5rem;
+  margin-left: -3.5rem;
+}
+
+.form-check.form-switch.form-switch-big .form-check-label {
+  padding-top: 0.15rem; /* Aligns text vertically with the larger toggle */
+}

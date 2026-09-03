@@ -18,6 +18,11 @@
 	let language: Lang = $state('en');
 
 	function buildOfferHTML(d: JobFormData, lang: Lang): string {
+		function getLangText (node: keyof TranslatableJobInfo) {
+			if (!d.lang || !d.lang[lang] || !d.lang[lang][node].length) return d[node];
+			return d.lang[lang][node];
+		}
+
 		const t = T_LABELS[lang];
 		const dateStr = d.availableFrom ? new Date(d.availableFrom).toLocaleDateString('en-GB') : '';
 		const now = new Date().toLocaleDateString('en-GB');
@@ -35,7 +40,7 @@
         </div>
         <div style="font-size:11px;color:#888;text-align:right;">${now}${d.offerRef ? '<br><span style="color:#005258;font-weight:700;">' + t.ref + ': ' + d.offerRef + '</span>' : ''}</div>
       </div>
-      <div style="font-size:19px;font-weight:800;color:#002B49;margin-bottom:4px;">${d.jobType}</div>
+      <div style="font-size:19px;font-weight:800;color:#002B49;margin-bottom:4px;">${getLangText('jobType')}</div>
       <div style="font-size:13px;color:#005258;margin-bottom:16px;font-weight:600;">📍 ${d.location}, ${d.city}</div>
       <div style="background:#e6f2f2;border-left:4px solid #005258;padding:10px 14px;border-radius:0 6px 6px 0;font-weight:700;color:#002B49;margin-bottom:16px;">
         💰 ${t.rate}: ${rate}${d.availableFrom ? '&nbsp;&nbsp;|&nbsp;&nbsp;📅 ' + t.available + ': ' + dateStr : ''}
@@ -46,10 +51,10 @@
         ${row(t.housing, ACCOMMODATION_OPTION_LIST[d.accommodation])}
         ${row(t.benefits, d.benefits.map((item) => BENEFITS_LIST[item]).join(', '))}
       </div>
-      ${sec(t.workplaceDesc, d.workplaceDesc)}
-      ${sec(t.requirements, d.requirements)}
-      ${sec(t.duties, d.duties)}
-      ${sec(t.extra, d.extra)}
+      ${sec(t.workplaceDesc, getLangText('workplaceDesc'))}
+      ${sec(t.requirements, getLangText('requirements'))}
+      ${sec(t.duties, getLangText('duties'))}
+      ${sec(t.extra, getLangText('extra'))}
       <div style="margin-bottom:14px;"><div style="font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#fff;background:#005258;padding:4px 10px;border-radius:4px;display:inline-block;margin-bottom:8px;">${t.contact}</div>
         <div style="font-size:13px;color:#002B49;">
           <div>📱+48 22 266 20 22</div>
@@ -87,7 +92,7 @@
 
 	function copyMessenger() {
 		if (!previewData) return;
-		navigator.clipboard.writeText(buildMessengerText(previewData)).then(() => addToast('Skopiowano do schowka!', 'success'));
+		navigator.clipboard.writeText(buildMessengerText(previewData)).then(() => addToast('Copied to clipboard!', 'success'));
 	}
 
 	async function generatePDF() {
@@ -135,10 +140,10 @@
 
 			archivePreview(previewData);
 
-			addToast('PDF wygenerowany!', 'success');
+			addToast('PDF generated!', 'success');
 		} catch (e) {
 			console.error(e);
-			addToast('Błąd generowania PDF.', 'info');
+			addToast('Error generating PDF.', 'info');
 		} finally {
 			document.body.removeChild(container);
 			pdfGenerating = false;
@@ -161,14 +166,14 @@
 	<div class="modal-box">
 		<!-- svelte-ignore a11y_consider_explicit_label -->
 		<button class="btn-close position-absolute" style="top:16px;right:16px;" onclick={() => (showPreviewModal = false)}></button>
-		<div class="modal-title">Podgląd oferty</div>
+		<div class="modal-title">Offer preview</div>
 
 		<div class="modal-tabs">
 			<button class="modal-tab d-flex align-items-center justify-content-center {previewTab === 'offer' ? 'active' : ''}" onclick={() => (previewTab = 'offer')}>
-				<UIcon name="eye" class="me-2" /> Podgląd oferty
+				<UIcon name="eye" class="me-2" /> Offer preview
 			</button>
 			<button class="modal-tab d-flex align-items-center justify-content-center {previewTab === 'msg' ? 'active' : ''}" onclick={() => (previewTab = 'msg')}>
-				<UIcon name="comment" class="me-2" /> Komunikator (EN)
+				<UIcon name="comment" class="me-2" /> Communicator
 			</button>
 		</div>
 
@@ -189,18 +194,18 @@
 		{/if}
 
 		<div class="d-flex gap-2 justify-content-end mt-3 flex-wrap">
-			<button class="btn btn-eisg-ghost" onclick={() => (showPreviewModal = false)}>Zamknij</button>
+			<button class="btn btn-eisg-ghost" onclick={() => (showPreviewModal = false)}>Close</button>
 			<button class="btn btn-eisg-success" onclick={() => previewData && doSave(previewData)}>
 				<UIcon name="disk" />
-				Zapisz ofertę
+				Save offer
 			</button>
 			<button class="btn btn-eisg-primary" onclick={generatePDF} disabled={pdfGenerating}>
 				{#if pdfGenerating}
 					<span class="spinner-border spinner-border-sm text-primary" style="width: 16px; height: 16px;" role="status" aria-hidden="true"></span>
-					Generuję PDF...
+					Ggenerating PDF...
 				{:else}
 					<UIcon name="download" />
-					Pobierz PDF ({language.toUpperCase()})
+					Download PDF ({language.toUpperCase()})
 				{/if}
 			</button>
 		</div>
