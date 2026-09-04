@@ -112,8 +112,7 @@ declare global {
 		deletedAt: string;
 	}
 
-	interface ArchiveEntry extends JobFormData {
-		id: string;
+	interface ArchiveEntry extends SavedOffer {
 		createdAt: string;
 		langs: string;
 	}

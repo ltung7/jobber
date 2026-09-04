@@ -6,10 +6,10 @@
 	import type { Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import ShareButton from '$lib/misc/ShareButton.svelte';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { PUBLIC_OFFER_URL } from '$env/static/public';
 
 	interface Props {
-		form: JobFormData;
+		form: JobFormData | SavedOffer;
 		onSave?: () => void;
 		onPreview?: () => void;
 		children?: Snippet;
@@ -86,7 +86,38 @@
 			addToast('Please fill in the field: Requirements');
 			return false;
 		}
+
+		// Format text fields
+		form.requirements = formatTextField(form.requirements);
+		form.workplaceDesc = formatTextField(form.workplaceDesc);
+		form.duties = formatTextField(form.duties);
+		form.extra = formatTextField(form.extra);
+
 		return true;
+	}
+
+	function formatTextField(text: string): string {
+		if (!text) return text;
+
+		// Rule 1: Remove extra new lines (\n or \r\n) - normalize to single \n
+		let formatted = text.replace(/\r?\n+/g, '\n');
+
+		// Rule 3: Remove leading * or - characters from each line
+		formatted = formatted.replace(/^\s*[\*\-\•]\s+/gm, '');
+
+		// Rule 2: If there are no \n, but many ., add \n to each . except the last
+		if (!formatted.includes('\n') && formatted.split('.').length > 3) {
+			// Split by period, filter empty, then join with .\n except last
+			const parts = formatted.split('.').filter(p => p.trim().length > 0);
+			if (parts.length > 1) {
+				formatted = parts.map((p, i) => {
+					const trimmed = p.trim();
+					return i < parts.length - 1 ? `${trimmed}.` : trimmed;
+				}).join('\n');
+			}
+		}
+
+		return formatted;
 	}
 
 	async function save() {
@@ -134,10 +165,10 @@
 				</label>
 			</div>
 		</div>
-		{#if form.public}
+		{#if form.public && 'id' in form}
 			<div class="col-md-6" transition:fly>
 				<label class="field-label" for="any">Link to view / share</label>
-				<ShareButton />
+				<ShareButton url={PUBLIC_OFFER_URL + '/offers/' + form.id} />
 			</div>
 		{/if}
 	</div>

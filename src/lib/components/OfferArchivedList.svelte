@@ -3,9 +3,9 @@
 
 	interface Props {
 		archivedOffers: ArchiveEntry[];
-		deleteArchive: (id: string) => void;
+		recoverArchive: (id: string) => void;
 	}
-	let { archivedOffers, deleteArchive }: Props = $props();
+	let { archivedOffers, recoverArchive }: Props = $props();
 </script>
 
 <div class="mb-4">
@@ -34,7 +34,7 @@
 						<td style="color:#16a34a;font-weight:600;">{entry.rateTo}</td>
 						<td><span class="lang-badge lb-en">{entry.langs}</span></td>
 						<td style="color:#4a6072;font-size:12px;">{new Date(entry.createdAt ?? entry.availableFrom).toLocaleDateString('en-GB')}</td>
-						<td><button class="btn btn-eisg-danger btn-sm" onclick={() => deleteArchive(entry.id)}>Delete</button></td>
+						<td><button class="btn btn-eisg-primary btn-sm" onclick={() => recoverArchive(entry.id)}>Recover</button></td>
 					</tr>
 				{/each}
 			</tbody>

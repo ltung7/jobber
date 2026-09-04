@@ -6,10 +6,10 @@
 		savedOffers: SavedOffer[];
 		openEdit: (id: string) => void;
 		previewSaved: (id: string) => void;
-		deleteSaved: (id: string) => void;
 		openCandidates: (id: string) => void;
+		archivePreview: (previewData: JobFormData | SavedOffer) => void;
 	}
-	let { savedOffers, openEdit, previewSaved, deleteSaved, openCandidates }: Props = $props();
+	let { savedOffers, openEdit, previewSaved, openCandidates, archivePreview }: Props = $props();
 </script>
 
 <div class="mb-4">
@@ -63,7 +63,7 @@
                                     <UIcon name="edit" />
                                 </button>
                                 <button class="btn btn-eisg-ghost btn-sm" onclick={() => previewSaved(offer.id)}>PDF</button>
-                                <button class="btn btn-eisg-danger btn-sm" onclick={() => deleteSaved(offer.id)}>Delete</button>
+                                <button class="btn btn-eisg-danger btn-sm" onclick={() => archivePreview(offer)}>Archive</button>
                             </div>
                         </td>
                     </tr>

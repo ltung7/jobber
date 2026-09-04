@@ -20,11 +20,15 @@ export const findJobberOffersList = async <T = SavedOffer>(query: App.FirebaseIt
 
 const archivedCollectionName: string = 'jobber/offers/archived';
 
-export const addArchivedOffersList = async (data: SavedOffer) => {
+export const addArchivedOffersList = async (data: ArchiveEntry) => {
     return addItem(data, archivedCollectionName);
 }
 
-export const findArchivedOffersList = async <T = SavedOffer>(query: App.FirebaseItemsQuery = false, select: App.FirebaseItemsFields = false): Promise<T[]> => {
+export const getArchivedOffersList = async <T = ArchiveEntry>(id: string): Promise<T | null> => {
+    return getItemById(id, archivedCollectionName);
+}
+
+export const findArchivedOffersList = async <T = ArchiveEntry>(query: App.FirebaseItemsQuery = false, select: App.FirebaseItemsFields = false): Promise<T[]> => {
     return getItems(archivedCollectionName, query, select);
 }
 
@@ -48,6 +52,28 @@ export const archiveJobberOfferList = async (offer: SavedOffer) => {
     return true;
 }
 
+
+export const unarchiveJobberOfferList = async (offer: ArchiveEntry) => {
+    // Move an offer from the archived collection back to the active collection.
+    // Removes archived-specific fields (createdAt, langs) to restore to original state.
+    const firestore = db();
+    const srcRef = getRef(archivedCollectionName).doc(offer.id);
+    const destRef = getRef(collectionName).doc(offer.id);
+    await firestore.runTransaction(async (transaction) => {
+        const srcDoc = await transaction.get(srcRef);
+        if (!srcDoc.exists) {
+            // Nothing to unarchive; exit silently.
+            return;
+        }
+        const data = srcDoc.data() as ArchiveEntry;
+        // Remove archived-specific fields to restore to original state
+        const { createdAt, langs, ...rest } = data;
+        const unarchivedData = { ...rest };
+        transaction.set(destRef, unarchivedData);
+        transaction.delete(srcRef);
+    });
+    return true;
+};
 
 const deletedCollectionName: string = 'jobber/offers/deleted';
 

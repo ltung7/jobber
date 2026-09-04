@@ -27,7 +27,6 @@
 
 	let editingOffer = $state<SavedOffer | null>(null);
 	let candidateOffer = $state<SavedOffer | null>(null);
-	let loadedOffers = $state(false);
 	let loadedArchive = $state(false);
 
 	let settings = $state<Settings>({ sheetsId: '', sheetsKey: '' });
@@ -52,7 +51,6 @@
 
 		const response = await internal.getApi();
 		if (response.offers) savedOffers = response.offers;
-		loadedOffers = true;
 	});
 
 	function doSave(d: JobFormData) {
@@ -84,16 +82,12 @@
 		showEditModal = false;
 	}
 
-	async function deleteSaved(id: string) {
-		if (!confirm('Usunąć tę ofertę i listę kandydatów?')) return;
-		const response = await confirmSuccess(internal.delApi({ id }));
-		if (response.success) savedOffers = savedOffers.filter((item) => item.id !== id);
-	}
-
-	function deleteArchive(id: string) {
-		// TODO:
-		if (!confirm('Usunąć wpis z archiwum?')) return;
-		addToast('NOT IMPLEMENTED');
+	async function recoverArchive(id: string) {
+		const response = await internal.del('archive', { id });
+		if (response.offer) {
+			archivedOffers = archivedOffers.filter(item => item.id !== id);
+			savedOffers.push(response.offer)
+		}
 	}
 
 	function previewSaved(id: string) {
@@ -136,7 +130,7 @@
 
 		const response = await internal.post('archive', previewData);
 		if (response.id) {
-			const archived: ArchiveEntry = { ...previewData, id: response.id, langs: Object.keys(previewData.lang).join(',').toUpperCase(), createdAt: new Date().toISOString() };
+			const archived: ArchiveEntry = { ...previewData, id: response.id, langs: Object.keys(previewData.lang).join(',').toUpperCase(), createdAt: new Date().toISOString(), candidates: [], savedAt: new Date().toISOString() };
 			archivedOffers.unshift(archived);
 		}
 	}
@@ -180,12 +174,12 @@
 
 		<!-- ─── VIEW: SAVED ─── -->
 		{#if activeView === 'saved'}
-			<OfferSavedList {savedOffers} {openEdit} {previewSaved} {openCandidates} {deleteSaved} />
+			<OfferSavedList {savedOffers} {openEdit} {previewSaved} {openCandidates} {archivePreview} />
 		{/if}
 
 		<!-- ─── VIEW: ARCHIVE ─── -->
 		{#if activeView === 'archive'}
-			<OfferArchivedList {archivedOffers} {deleteArchive} />
+			<OfferArchivedList {archivedOffers} {recoverArchive} />
 		{/if}
 
 		{#if activeView === 'feedback'}

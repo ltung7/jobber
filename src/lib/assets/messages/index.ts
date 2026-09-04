@@ -36,6 +36,14 @@ export interface JobOfferTranslations {
     benefits_stability: string;
     benefits_salary: string;
     benefits_environment: string;
+    bnft_transport: string,
+	bnft_meals: string,
+	bnft_clothing: string,
+	bnft_legalization: string,
+	bnft_formalities: string,
+	bnft_stability: string,
+	bnft_salary: string,
+	bnft_environment: string,
     offerTitle: string;
     position: string;
     location: string;
