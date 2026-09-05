@@ -5,7 +5,7 @@
 
     let { toast = $bindable() } = $props();
     if (toast.type === 'danger') console.error(toast.msg.replace(/(<([^>]+)>)/gi, ""));
-    if (!toast.title) toast.title ='Powiadomienie';
+    if (!toast.title) toast.title ='Notification';
 
     function remove() {
         removeToast(toast.id)

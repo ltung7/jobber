@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import type { PageData } from './$types';
 	import EditOfferModal from '$lib/components/EditOfferModal.svelte';
 	import FeedBackRequestView from '$lib/components/FeedBackRequestView.svelte';
 	import OfferArchivedList from '$lib/components/OfferArchivedList.svelte';
@@ -13,6 +15,13 @@
 	import Toasts from '$lib/toast/Toasts.svelte';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
+
+	let { data }: { data: PageData } = $props();
+
+	// Client-side safety net: if the server load didn't redirect (e.g. SPA navigation), check user
+	// onMount(() => {
+	// 	if (!data?.user) goto('/login', { replaceState: true });
+	// });
 
 	let savedOffers: SavedOffer[] = $state([]);
 	let archivedOffers: ArchiveEntry[] = $state([]);
@@ -138,12 +147,8 @@
 
 <!-- CDN scripts injected at mount time via Svelte action or head tag in parent -->
 <svelte:head>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-	<title>EISG. Generator Ofert Pracy</title>
 </svelte:head>
 
 <Toasts />

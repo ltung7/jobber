@@ -7,6 +7,12 @@ declare global {
 			admin: boolean;
 			subRoute?: string | undefined,
 			auth: BaseUserData;
+			user?: {
+				uid: string;
+				email?: string;
+				displayName: string | null;
+				photoURL: string | null;
+			};
 		}
 
 		/**
@@ -41,17 +47,28 @@ declare global {
 		type FirebaseOrderQuery<K extends string = string> = [K, 'asc' | 'desc'] | false;
 	}
 
+	interface FirebaseUser {
+		uid: string;
+		email: string | null;
+		displayName: string | null;
+		photoURL: string | null;
+		disabled: boolean;
+		createdAt?: string;
+		lastSignInAt?: string;
+	}
+
 	// type Lang = 'en' | 'pl' | 'hi' | 'ne' | 'hr' | 'uk' | 'be' | 'tl' | 'es' | 'uz' | 'bn' | 'ka' | 'ro';
 	type Lang = 'en' | 'pl' | 'hi' | 'ne' | 'uk' | 'tl';
-	
+
 	type View = 'generator' | 'saved' | 'archive' | 'settings' | 'feedback';
+	type AdminView = 'users' | 'new';
 	type PreviewTab = 'offer' | 'msg';
 	type ToastType = 'success' | 'info';
 
 	type ContractType = 'uop' | 'uoz' | 'uod';
 	type ShiftType = 'one' | 'two' | 'three' | 'agree' | 'flex';
 	type AccommodationType = '' | 'free' | 'subsidized' | 'hostel' | 'apartment' | 'allowance' | 'couples' | 'hotel';
-	type BenefitType = 'training' | 'accommodation' | 'transport' | 'meals' | 'clothing' | 'legalization' | 'formalities' | 'stability'| 'salary'| 'environment';
+	type BenefitType = 'training' | 'accommodation' | 'transport' | 'meals' | 'clothing' | 'legalization' | 'formalities' | 'stability' | 'salary' | 'environment';
 
 	// Props for components that accept an active view
 	interface FeedbackRequestProps {
@@ -86,7 +103,7 @@ declare global {
 		rateNet: boolean;
 		contractType: ContractType;
 		shift: ShiftType;
-		benefits: BenefitType[], 
+		benefits: BenefitType[],
 		offerRef: string;
 		lang: Partial<Record<Lang, TranslatableJobInfo>>;
 		public: boolean;

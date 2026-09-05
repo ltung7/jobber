@@ -46,5 +46,9 @@
 			<UIcon name="settings" />
 			Google Sheets
 		</button>
+		<a class="sidebar-item" href="/admin">
+			<UIcon name="user-permissions" />
+			Admin panel
+		</a>
 	</div>
 </nav>

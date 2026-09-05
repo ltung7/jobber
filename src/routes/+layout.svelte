@@ -7,6 +7,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<title>EISG. Generator Ofert Pracy</title>
 </svelte:head>
 
 {@render children()}
