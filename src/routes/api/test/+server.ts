@@ -12,14 +12,6 @@ import { findJobberOffersList, getJobberOffersList, setJobberOffersList } from '
 
 
 const runApiTest = async () => {
-    // const list:Array<Partial<SavedOffer>> = await findJobberOffersList();
-    const list:Array<Partial<SavedOffer>> = await loadJson('jobbersmod');
-    // await saveJson(list, 'jobbers')
-
-    for (let item of list) {
-        const { id, ...data } = item;
-        await setJobberOffersList(id!, data)
-    }
     
 }
 
