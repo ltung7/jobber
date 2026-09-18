@@ -4,6 +4,8 @@ import hi from './hi.json'
 import ne from './ne.json'
 import tl from './tl.json'
 import uk from './uk.json'
+import fr from './fr.json'
+import hr from './hr.json'
 
 export interface JobOfferTranslations {
     rate_label: string;
@@ -62,4 +64,4 @@ export interface JobOfferTranslations {
     footer: string;
 }
 
-export const T_LABELS: Record<Lang, JobOfferTranslations> = { en, pl, hi, ne, tl, uk }
+export const T_LABELS: Record<Lang, JobOfferTranslations> = { en, pl, hi, ne, tl, uk, fr, hr }
