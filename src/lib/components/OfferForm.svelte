@@ -139,7 +139,7 @@
 		</button>
 		{#each hasTranslations as lang}
 			<button class="button btn btn-sm btn-eisg-ghost" class:active={lang === currentLang} onclick={() => (currentLang = lang)}>
-				{@html LANGUAGES[lang]}
+				{@html LANGUAGES[lang] ?? lang}
 			</button>
 		{/each}
 	{:else}

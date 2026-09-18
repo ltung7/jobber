@@ -9,10 +9,13 @@ import { dumpAxiosError, logger, thrower } from '$lib/utils/logger';
 import loadJson from '$lib/utils/loadJson';
 import saveJson from '$lib/utils/saveJson';
 import { findJobberOffersList, getJobberOffersList, setJobberOffersList } from '$lib/server/db/firebase/jobber.fdb';
+import { fillMissingTranslations } from '$lib/server/services/fillMissingTranslations.service';
 
 
 const runApiTest = async () => {
-    
+    // const offers = await findJobberOffersList({ public: true })
+    // console.log({ offers })
+    await fillMissingTranslations()
 }
 
 

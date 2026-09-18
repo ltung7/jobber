@@ -75,6 +75,7 @@ export const logger = {
     log: logColor,
     gray: (text: string) => logColor(text, LOGGER_COLORS.GRAY),
     warn: (text: string) => logColor(text, LOGGER_COLORS.YELLOW),
+    success: (text: string) => logColor(text, LOGGER_COLORS.GREEN),
     error: (err: string|unknown|Error, inspectItem: ExplicitAnyToExtend = null) => {
         if (!isDev) return;
         if (err instanceof Error) {

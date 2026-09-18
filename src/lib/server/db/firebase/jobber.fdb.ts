@@ -14,7 +14,7 @@ export const getJobberOffersList = async <T = SavedOffer>(id: string): Promise<T
     return getItemById(id, collectionName);
 }
 
-export const findJobberOffersList = async <T = SavedOffer>(query: App.FirebaseItemsQuery = false, select: App.FirebaseItemsFields = false): Promise<T[]> => {
+export const findJobberOffersList = async <T = SavedOffer>(query: App.FirebaseItemsQuery<keyof SavedOffer> = false, select: App.FirebaseItemsFields = false): Promise<T[]> => {
     return getItems(collectionName, query, select);
 }
 
