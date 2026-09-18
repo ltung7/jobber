@@ -58,7 +58,7 @@ declare global {
 	}
 
 	// type Lang = 'en' | 'pl' | 'hi' | 'ne' | 'hr' | 'uk' | 'be' | 'tl' | 'es' | 'uz' | 'bn' | 'ka' | 'ro';
-	type Lang = 'en' | 'pl' | 'hi' | 'ne' | 'uk' | 'tl';
+	type Lang = 'en' | 'pl' | 'hi' | 'ne' | 'uk' | 'tl' | 'fr';
 
 	type View = 'generator' | 'saved' | 'archive' | 'settings' | 'feedback';
 	type AdminView = 'users' | 'new';

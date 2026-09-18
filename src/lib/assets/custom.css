@@ -138,7 +138,7 @@ body {
 .lang-row {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 8px;
 	margin-bottom: 20px;
 	background: #fff;
 	border: 1px solid #d8e4e4;
@@ -157,6 +157,11 @@ body {
 	margin-left: auto;
 	font-size: 11px;
 	color: #8fa0ae;
+}
+
+.lang-row .btn {
+	padding: 4px;
+	border-radius: 0.375rem;
 }
 
 /* Badges */

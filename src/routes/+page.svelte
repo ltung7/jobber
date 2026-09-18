@@ -198,11 +198,6 @@
 	</main>
 </div>
 
-<!-- ─── PREVIEW MODAL ─────────────────────────────────────────────────── -->
-{#if showPreviewModal && previewData}
-	<OfferPreviewModal bind:showPreviewModal {previewData} {doSave} {archivePreview} />
-{/if}
-
 <!-- ─── EDIT MODAL ────────────────────────────────────────────────────── -->
 
 {#if showEditModal && editingOffer}
@@ -212,4 +207,9 @@
 <!-- ─── CANDIDATES MODAL ───────────────────────────────────────────────── -->
 {#if showCandidateModal && candidateOffer}
 	<OfferCandidates bind:showCandidateModal offer={candidateOffer} {setSaved} />
+{/if}
+
+<!-- ─── PREVIEW MODAL ─────────────────────────────────────────────────── -->
+{#if showPreviewModal && previewData}
+	<OfferPreviewModal bind:showPreviewModal {previewData} {doSave} {archivePreview} />
 {/if}

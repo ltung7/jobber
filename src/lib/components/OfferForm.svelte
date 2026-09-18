@@ -130,15 +130,15 @@
 </script>
 
 <!-- Language Selector (shared between modes) -->
-<div class="lang-row position-sticky top-0 p-1">
+<div class="lang-row position-sticky top-0 p-1 overflow-auto">
 	{#if translating}
 		<div class="p-2 small fst-italic text-info text-center w-100">Translation in progress. We'll have your offer ready momentarily. Please wait...</div>
 	{:else if hasTranslations.length}
-		<button class="button btn btn-sm btn-eisg-ghost mx-1 mb-1" class:active={!currentLang} onclick={() => (currentLang = false)}>
+		<button class="button btn btn-sm btn-eisg-ghost" class:active={!currentLang} onclick={() => (currentLang = false)}>
 			{@html LANGUAGES.en}
 		</button>
 		{#each hasTranslations as lang}
-			<button class="button btn btn-sm btn-eisg-ghost mx-1 mb-1" class:active={lang === currentLang} onclick={() => (currentLang = lang)}>
+			<button class="button btn btn-sm btn-eisg-ghost" class:active={lang === currentLang} onclick={() => (currentLang = lang)}>
 				{@html LANGUAGES[lang]}
 			</button>
 		{/each}
