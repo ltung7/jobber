@@ -46,9 +46,8 @@
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<td><strong style="cursor:pointer;color:#005258;" onclick={() => openEdit(offer.id)}>{offer.jobType}</strong></td>
-						<td style="color:#4a6072;"
-							>{#if offer.location?.length}{offer.location},
-							{/if}
+						<td style="color:#4a6072;">
+							{#if offer.location?.length}{offer.location},{/if}
 							{offer.city}</td
 						>
 						<td style="min-width: 125px;">
@@ -57,7 +56,7 @@
 						<td>
 							<button class="btn btn-eisg-ghost btn-sm" onclick={() => openCandidates(offer.id)}>
 								<UIcon name="users" />
-								{offer.candidates.length}
+								{offer.candidates?.length ?? 0}
 							</button>
 						</td>
 						<td style="color:#4a6072;font-size:12px;">{new Date(offer.savedAt).toLocaleDateString('en-GB')}</td>
