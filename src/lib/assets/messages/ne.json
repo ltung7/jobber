@@ -2,6 +2,8 @@
     "rate_label": "{rate} प्रति घण्टा ({type})",
     "rate_net": "खुद",
     "rate_gross": "कुल",
+    "rate_akord": "अकर्ड",
+    "rate_result": "प्रति नतिजा भुक्तानी",
     "from_now": "अहिले देखि",
     "contract_uop": "रोजगारी सम्झौता",
     "contract_uoz": "नागरिक कानून सम्झौता",

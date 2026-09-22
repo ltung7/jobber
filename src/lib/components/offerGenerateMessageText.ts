@@ -1,32 +1,35 @@
 import { T_LABELS } from '$lib/assets/messages';
 
 export function buildMessengerText(offer: JobFormData, lang: Lang): string {
-    const labels = T_LABELS[lang] as unknown as Record<string,string>;
+    const labels = T_LABELS[lang] as unknown as Record<string, string>;
 
     function getLangText(node: keyof TranslatableJobInfo): string {
-		if (!offer.lang || !offer.lang[lang] || !offer.lang[lang]?.[node]?.length) {
-			return offer[node] || '';
-		}
-		return offer.lang[lang]?.[node] || '';
-	}
+        if (!offer.lang || !offer.lang[lang] || !offer.lang[lang]?.[node]?.length) {
+            return offer[node] || '';
+        }
+        return offer.lang[lang]?.[node] || '';
+    }
 
-	function getRateText(offer: JobFormData) {
-		const rate = offer.rateFrom !== offer.rateTo ? `${offer.rateFrom} - ${offer.rateTo}` : `${offer.rateTo}`;
-		const type = offer.rateNet ? labels.rate_net : labels.rate_gross;
-		return labels.rate_label.replace('{rate}', rate).replace('{type}', type);
-	}
+    function getRateText(offer: JobFormData) {
+        if (offer.rateTo > 0) {
+            const rate = offer.rateFrom !== offer.rateTo ? `${offer.rateFrom} - ${offer.rateTo}` : `${offer.rateTo}`;
+            const type = offer.rateNet ? labels.rate_net : labels.rate_gross;
+            return labels.rate_label.replace('{rate}', rate).replace('{type}', type);
+        }
+        return `${labels.rate_akord} (${labels.rate_result})`
+    }
 
     function splitDescription(text: string) {
-		return text
-			.split(/\r?\n/)
-			.map((item) => {
-				const trimmed = item.trim();
-				return trimmed.startsWith('* ') ? trimmed.slice(2).trim() : trimmed;
-			})
-			.filter(Boolean)
+        return text
+            .split(/\r?\n/)
+            .map((item) => {
+                const trimmed = item.trim();
+                return trimmed.startsWith('* ') ? trimmed.slice(2).trim() : trimmed;
+            })
+            .filter(Boolean)
             .map(item => '• ' + item)
             .join('\n')
-	}
+    }
 
     const lines = [
         `💼 *${labels.offerTitle} — EISG*`,

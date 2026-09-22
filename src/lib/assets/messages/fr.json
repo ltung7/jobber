@@ -2,6 +2,8 @@
     "rate_label": "{rate} par heure ({type})",
     "rate_net": "net",
     "rate_gross": "brut",
+    "rate_akord": "Akord",
+    "rate_result": "paiement au résultat",
     "from_now": "Dès maintenant",
     "contract_uop": "Contrat de travail",
     "contract_uoz": "Contrat de droit civil",

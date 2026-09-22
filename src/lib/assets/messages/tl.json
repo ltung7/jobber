@@ -2,6 +2,8 @@
     "rate_label": "{rate} kada oras ({type})",
     "rate_net": "Neto",
     "rate_gross": "Bruto",
+    "rate_akord": "Akord",
+    "rate_result": "bayad kada resulta",
     "from_now": "Simula Ngayon",
     "contract_uop": "Kontrata ng Pagtatrabaho",
     "contract_uoz": "Kontrata ng Batas Sibil",

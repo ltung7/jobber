@@ -2,6 +2,8 @@
     "rate_label": "{rate} za godzinę ({type})",
     "rate_net": "netto",
     "rate_gross": "brutto",
+    "rate_akord": "Akord",
+    "rate_result": "płatność za wynik",
     "from_now": "Od zaraz",
     "contract_uop": "Umowa o pracę",
     "contract_uoz": "Umowa zlecenie",

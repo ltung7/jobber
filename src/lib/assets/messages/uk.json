@@ -2,6 +2,8 @@
     "rate_label": "{rate} за годину ({type})",
     "rate_net": "чистими",
     "rate_gross": "брутто",
+    "rate_akord": "Акорд",
+    "rate_result": "оплата за результат",
     "from_now": "Відтепер",
     "contract_uop": "Трудовий договір",
     "contract_uoz": "Цивільно-правовий договір",

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import UIcon from '$lib/misc/UIcon.svelte';
+	import RatePreview from './RatePreview.svelte';
 
 	interface Props {
 		archivedOffers: ArchiveEntry[];
@@ -31,7 +32,9 @@
 						<td style="color:#4a6072;font-size:12px;">{entry.offerRef || '—'}</td>
 						<td><strong>{entry.jobType}</strong></td>
 						<td style="color:#4a6072;">{entry.location}</td>
-						<td style="color:#16a34a;font-weight:600;">{entry.rateTo}</td>
+						<td style="min-width: 125px;">
+							<RatePreview rateFrom={entry.rateFrom} rateTo={entry.rateTo} rateNet={entry.rateNet} />
+						</td>
 						<td><span class="lang-badge lb-en">{entry.langs}</span></td>
 						<td style="color:#4a6072;font-size:12px;">{new Date(entry.createdAt ?? entry.availableFrom).toLocaleDateString('en-GB')}</td>
 						<td><button class="btn btn-eisg-primary btn-sm" onclick={() => recoverArchive(entry.id)}>Recover</button></td>

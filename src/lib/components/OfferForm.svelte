@@ -78,10 +78,6 @@
 			addToast('Please fill in the field: City');
 			return false;
 		}
-		if (!form.rateTo) {
-			addToast('Please fill in the field: Hourly Rate');
-			return false;
-		}
 		if (!form.requirements) {
 			addToast('Please fill in the field: Requirements');
 			return false;
@@ -211,7 +207,7 @@
 	<div class="form-card-title">Employment Terms</div>
 	<div class="row g-3">
 		<div class="col-12 col-md-6">
-			<label class="field-label" for="job-rateTo">Hourly Rate <span class="req">*</span></label>
+			<label class="field-label" for="job-rateTo">Hourly Rate</label>
 			<div class="d-flex align-items-center">
 				<span class="text-muted small me-2">from</span>
 				<input id="job-rateFrom" type="number" class="form-control" bind:value={form.rateFrom} />

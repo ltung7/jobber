@@ -11,6 +11,8 @@ export interface JobOfferTranslations {
     rate_label: string;
     rate_net: string;
     rate_gross: string;
+    rate_akord: string;
+	rate_result: string;
     from_now: string;
     contract_uop: string;
     contract_uoz: string;

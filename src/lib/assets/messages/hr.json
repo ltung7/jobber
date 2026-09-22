@@ -2,6 +2,8 @@
 	"rate_label": "{rate} po satu ({type})",
 	"rate_net": "neto",
 	"rate_gross": "bruto",
+	"rate_akord": "Akord",
+  	"rate_result": "plaćanje po rezultatu",
 	"from_now": "Od sada",
 	"contract_uop": "Ugovor o radu",
 	"contract_uoz": "Ugovor o djelu",

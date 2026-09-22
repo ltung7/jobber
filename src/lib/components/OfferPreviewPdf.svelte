@@ -18,9 +18,12 @@
 	}
 
 	function getRateText(offer: JobFormData) {
-		const rate = offer.rateFrom !== offer.rateTo ? `${offer.rateFrom} - ${offer.rateTo}` : `${offer.rateTo}`;
-		const type = offer.rateNet ? labels.rate_net : labels.rate_gross;
-		return labels.rate_label.replace('{rate}', rate).replace('{type}', type);
+		if (offer.rateTo > 0) {
+			const rate = offer.rateFrom !== offer.rateTo ? `${offer.rateFrom} - ${offer.rateTo}` : `${offer.rateTo}`;
+			const type = offer.rateNet ? labels.rate_net : labels.rate_gross;
+			return labels.rate_label.replace('{rate}', rate).replace('{type}', type);
+		}
+		return `${labels.rate_akord} (${labels.rate_result})`
 	}
 
 	function splitDescription(text: string) {

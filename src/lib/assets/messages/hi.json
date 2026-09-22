@@ -2,6 +2,8 @@
     "rate_label": "{rate} प्रति घंटा ({type})",
     "rate_net": "नेट",
     "rate_gross": "सकल",
+    "rate_akord": "अकॉर्ड",
+    "rate_result": "प्रति परिणाम भुगतान",
     "from_now": "अभी से",
     "contract_uop": "रोजगार अनुबंध",
     "contract_uoz": "सिविल कानून अनुबंध",
