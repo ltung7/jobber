@@ -1,13 +1,14 @@
 {
 	"name": "juliette",
 	"private": true,
-	"version": "0.0.19",
+	"version": "0.0.20",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
 		"deploy": "vite build && node build.js && gcloud app deploy build/app.yaml --project=ecomsupportapp && npm --no-git-tag-version version patch",
+		"redeploy": "gcloud app deploy build/app.yaml --project=ecomsupportapp",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
