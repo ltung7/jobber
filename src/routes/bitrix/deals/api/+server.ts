@@ -20,9 +20,9 @@ export const GET: RequestHandler = async ({ url, setHeaders }) => {
         targetDate = targetDate.subtract(1, 'month');
     }
 
-    // Determine exact start and end boundaries for the month
-    const startDate = targetDate.startOf('month').format();
-    const endDate = targetDate.endOf('month').format();
+    // Determine exact start and end boundaries for the month using exact date string to avoid timezone bleeding
+    const startDate = targetDate.startOf('month').format('YYYY-MM-DD');
+    const endDate = targetDate.endOf('month').format('YYYY-MM-DD');
 
     // Map the 'filterBy' parameter to actual Bitrix fields
     // 'closeDate' -> 'CLOSEDATE'

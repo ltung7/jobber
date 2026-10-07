@@ -34,12 +34,13 @@ This plan outlines the approach to integrate a Bitrix24 leads analytics feature 
     2. Create a User Map for fast ID to Name lookups.
     3. Return the `users` (or `userMap`), `selectedMonth`, and `selectedYear` directly to the page. (We no longer fetch leads here to speed up initial page load).
 
-## 5. API Endpoint (`src/routes/bitrix/leads/api/+server.ts`)
+## 5. API Endpoint (`src/routes/bitrix/deals/api/+server.ts`)
 *   Create a dedicated GET endpoint for client-side fetching.
-*   Extract `month` and `year` from the URL search parameters.
+*   Extract `month`, `year`, and `filterBy` from the URL search parameters.
 *   Determine the exact start and end dates via `dayjs`.
-*   Call `bitrixService.getClosedLeads(startDate, endDate)`.
-*   Return the leads as a JSON response.
+*   Map `filterBy` to date field: `closeDate` → `CLOSEDATE`, default → `UF_CRM_1787746162988` (workStart).
+*   Call `bitrixService.getClosedDeals(startDate, endDate, dateField)`.
+*   Return the deals as a JSON response.
 
 ## 6. Frontend Aggregation & UI (`src/routes/bitrix/leads/+page.svelte`)
 *   **Data Binding:** Receive the users and date parameters using Svelte 5 `$props()`.
@@ -88,14 +89,58 @@ This plan outlines the approach to integrate a Bitrix24 leads analytics feature 
 
 - [x] **Step 7: Extend Types and Service for Deals**
   - [x] Add `BitrixDeal` interface to `src/lib/bitrix/bitrix.d.ts`.
-  - [x] Add `getClosedDeals(startDate, endDate)` method to `src/lib/bitrix/bitrix.service.ts` using `crm.deal.list` (filter by `STAGE_SEMANTIC_ID: 'S'` which means successful, or the exact winning stage ID).
+  - [x] Add `getClosedDeals(startDate, endDate, dateField)` method to `src/lib/bitrix/bitrix.service.ts` using `crm.deal.list` filtered by date range on configurable field (`CLOSEDATE` or custom `UF_CRM_1787746162988` workStart field). **No stage filtering** - returns all deals with a date in that field within the month.
 - [x] **Step 8: Create Route Backend for Deals**
   - [x] Create directory `src/routes/bitrix/deals/`.
   - [x] Create `+page.server.ts` (can be similar to leads).
 - [x] **Step 9: Create API Endpoint for Deals**
   - [x] Create directory `src/routes/bitrix/deals/api/`.
-  - [x] Create `+server.ts` GET endpoint to fetch closed deals.
+  - [x] Create `+server.ts` GET endpoint to fetch deals by date range with configurable date field (`filterBy` param: `closeDate` or `workStart`).
 - [x] **Step 10: Build the Deals UI**
   - [x] Create `src/routes/bitrix/deals/+page.svelte`.
   - [x] Implement the same 2-col UI layout and user aggregation as Leads, but for Deals.
   - [x] Update `BASE_URL` to point to Deals in Bitrix (`/crm/deal/details/`).
+
+## 9. Recruiter Analytics Integration (New Conditions)
+
+To accommodate new evaluation rules without modifying existing endpoints and logic, a completely separate set of functions and endpoints (`/bitrix/recruiter` and `/bitrix/recruiter/api`) will be created.
+
+*   **Endpoint Goal:** Evaluate recruiter performance based on the success of their recruited contacts. A contact is deemed successful if they have accumulated a **minimum of 30 worked days** across one or multiple jobs.
+*   **Timeframe & Fetching:**
+    *   Deals taken into account must span from **2 months ago up to the current day**.
+    *   This expanded timeframe is necessary because a contact might have multiple sequential deals (e.g., worked 7 days on one deal, stopped, then started a new job which could begin in the middle of last month). We need to fetch enough deals to accurately group and sum up their total worked days.
+    *   **Filter applied:** "Start work" date must fall within the selected past 2-month window.
+*   **Calculations & Conditions:**
+    *   **Worked Days:** For each deal associated with a contact, calculate the duration in days (End Date - Start Date).
+    *   **Totaling:** Sum the "worked days" for all deals tied to a specific person (Bitrix contact).
+    *   **Success Condition:** The contact is counted as successful *only* if their total aggregated worked days is $\ge$ 30.
+*   **Grouping Mechanism:**
+    *   Unlike leads and raw deals, this analytics view is **no longer grouped by the deal's `ASSIGNED_BY_ID`**.
+    *   Instead, group the successfully evaluated contacts by their assigned **Recruiter**.
+    *   The Recruiter is stored in a custom field on the associated **Contact data** (Field ID: `UF_CRM_1790672831151`).
+
+### Chronological Implementation Steps for Recruiter Analytics
+
+- [x] **Step 11: Fix existing deals endpoint off-by-one day issue**
+  - [x] Update `src/routes/bitrix/deals/api/+server.ts` to explicitly format boundaries as `YYYY-MM-DD` and use strictly `<` for the next month's 1st day, or explicitly pass `YYYY-MM-DDT23:59:59` to ensure Bitrix cuts off exactly at the end of the day.
+- [x] **Step 12: Update Types and Service for Contacts and Recruiter Deals**
+  - [x] Add `CONTACT_ID` and `UF_CRM_1787746186953` (Work End) to `BitrixDeal` in `src/lib/bitrix/bitrix.d.ts`.
+  - [x] Create `BitrixContact` interface with `ID`, `NAME`, `LAST_NAME`, and `UF_CRM_1790672831151` (Recruiter) in `src/lib/bitrix/bitrix.d.ts`.
+  - [x] Add `getContactsByIds(contactIds)` method to `bitrix.service.ts` to fetch contacts in batches.
+- [x] **Step 13: Create Recruiter API Endpoint**
+  - [x] Create `src/routes/bitrix/recruiter/api/+server.ts`.
+  - [x] Implement logic to:
+    1. Parse month/year.
+    2. Determine evaluation period (selected month + next month OR yesterday, whichever is first).
+    3. Fetch Deals with Work Start in the selected month to get `CONTACT_ID`s.
+    4. Fetch ALL deals for those contacts within the evaluation period.
+    5. Fetch Contacts for those IDs.
+    6. Calculate worked days (empty end date = today).
+    7. Aggregate and return enriched JSON.
+- [x] **Step 14: Create Recruiter Route Backend**
+  - [x] Create `src/routes/bitrix/recruiter/+page.server.ts`.
+  - [x] Fetch the Recruiter field metadata to map choice IDs to names.
+- [x] **Step 15: Build Recruiter UI**
+  - [x] Create `src/routes/bitrix/recruiter/+page.svelte`.
+  - [x] Group by Recruiter name. Show totals (started vs. passed $\ge$ 30 days).
+  - [x] Display Contacts, their total worked days (warning style if $< 30$), and nested Deals with links.
