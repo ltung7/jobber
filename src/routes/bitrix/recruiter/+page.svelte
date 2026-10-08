@@ -677,7 +677,7 @@
 															<div class="d-flex align-items-center gap-1">
 																ID
 																{#if sortColumn === 'id'}
-																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
 																{/if}
 															</div>
 														</th>
@@ -685,7 +685,7 @@
 															<div class="d-flex align-items-center gap-1">
 																CONTRACTOR NAME
 																{#if sortColumn === 'name'}
-																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
 																{/if}
 															</div>
 														</th>
@@ -693,7 +693,7 @@
 															<div class="d-flex align-items-center gap-1">
 																PROJECT
 																{#if sortColumn === 'placement'}
-																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
 																{/if}
 															</div>
 														</th>
@@ -701,7 +701,7 @@
 															<div class="d-flex align-items-center justify-content-center gap-1">
 																<TooltipText text="TOTAL WORKED DAYS" hoverText="Sum of worked days across all deals. Target &ge; 30 days to qualify for commission." placement="top" />
 																{#if sortColumn === 'totalWorkedDays'}
-																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
 																{/if}
 															</div>
 														</th>
@@ -709,7 +709,7 @@
 															<div class="d-flex align-items-center justify-content-center gap-1">
 																<TooltipText text="EVAL PERIOD DAYS" hoverText="Worked days evaluated strictly in the 2-month qualifying window." placement="top" />
 																{#if sortColumn === 'evalPeriodDays'}
-																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
 																{/if}
 															</div>
 														</th>
@@ -717,7 +717,7 @@
 															<div class="d-flex align-items-center justify-content-center gap-1">
 																STATUS
 																{#if sortColumn === 'status'}
-																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
 																{/if}
 															</div>
 														</th>
@@ -961,7 +961,6 @@
 	.dashboard-wrapper {
 		background-color: #f6f8fc;
 		min-height: 100vh;
-		padding-bottom: 60px;
 		font-family:
 			'Montserrat',
 			system-ui,
