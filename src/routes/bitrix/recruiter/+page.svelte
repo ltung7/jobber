@@ -1,7 +1,9 @@
 <script lang="ts">
-    import { onMount, untrack } from 'svelte';
-    import { internal } from '$lib/nav/internal';
-    import dayjs from 'dayjs';
+import { onMount, untrack } from 'svelte';
+import { internal } from '$lib/nav/internal';
+import dayjs from 'dayjs';
+import DownloadRecruiterStats from './DownloadRecruiterStats.svelte';
+import TooltipText from '$lib/misc/TooltipText.svelte';
 
     const CONTACT_BASE_URL = 'https://eisg.bitrix24.pl/crm/contact/details/';
     const DEAL_BASE_URL = 'https://eisg.bitrix24.pl/crm/deal/details/';
@@ -15,6 +17,7 @@
     let loading = $state(true);
     let expandedRecruiters = $state<Record<string, boolean>>({});
     let expandedContacts = $state<Record<string, boolean>>({});
+    let projectOptions = $state<Record<string, string>>(untrack(() => data.projectOptions || {}));
 
     // Generate last 12 months array for the left sidebar navigation
     const last12Months = Array.from({ length: 12 }).map((_, i) => {
@@ -128,7 +131,12 @@
 
         <!-- RIGHT COLUMN: Recruiter Analytics -->
         <div class="col-md-9 col-lg-10">
-            <h4 class="fw-bold mb-3">Recruiter Performance (Min. 30 days)</h4>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold mb-0">Recruiter Performance (Min. 30 days)</h4>
+                {#if !loading && aggregated.length > 0}
+                    <DownloadRecruiterStats {aggregated} {selectedYear} {selectedMonth} />
+                {/if}
+            </div>
             
             {#if loading}
                 <div class="p-5 text-center text-muted bg-light border rounded shadow-sm">
@@ -177,7 +185,20 @@
                                                 <tr>
                                                     <th class="px-3 py-2" style="width: 75px;">ID</th>
                                                     <th class="px-3 py-2">Contact Name</th>
-                                                    <th class="px-3 py-2 text-center" style="width: 150px;">Total Worked Days</th>
+                                                    <th class="px-3 py-2 text-center" style="width: 150px;">
+                                                        <TooltipText 
+                                                            text="Total Worked Days" 
+                                                            hoverText="Sum of all worked days across all deals for this contact. Calculated as (End Date - Start Date) for each deal. Empty end date = today. Contact passes if &ge; 30 days."
+                                                            placement="top"
+                                                        />
+                                                    </th>
+                                                    <th class="px-3 py-2 text-center" style="width: 150px;">
+                                                        <TooltipText 
+                                                            text="Eval Period Days" 
+                                                            hoverText="Worked days that fall within the evaluation period (selected month + next month, or up to today). This is the subset of total worked days counted for the current evaluation window."
+                                                            placement="top"
+                                                        />
+                                                    </th>
                                                     <th class="px-3 py-2 text-center" style="width: 100px;">Status</th>
                                                     <th class="px-3 py-2 text-center" style="width: 50px;">Deals</th>
                                                 </tr>
@@ -193,6 +214,9 @@
                                                         </td>
                                                         <td class="px-3 py-2 text-center align-middle fw-bold {contact.isSuccessful ? 'text-success' : 'text-danger'}">
                                                             {contact.totalWorkedDays} days
+                                                        </td>
+                                                        <td class="px-3 py-2 text-center align-middle text-muted">
+                                                            {contact.totalWorkedDaysEval} days
                                                         </td>
                                                         <td class="px-3 py-2 text-center align-middle">
                                                             {#if contact.isSuccessful}
@@ -213,27 +237,29 @@
                                                     <!-- Nested Deals Row -->
                                                     {#if expandedContacts[contact.id]}
                                                         <tr class="table-secondary">
-                                                            <td colspan="5" class="p-3">
+                                                            <td colspan="6" class="p-3">
                                                                 <div class="bg-white rounded border p-2">
                                                                     <strong class="d-block mb-2 text-muted">Deals history for {contact.name}:</strong>
                                                                     <table class="table table-sm table-striped mb-0">
                                                                         <thead>
                                                                             <tr>
                                                                                 <th>Deal ID</th>
-                                                                                <th>Title</th>
+                                                                                <th>Project</th>
                                                                                 <th>Work Start</th>
                                                                                 <th>Work End</th>
-                                                                                <th>Days</th>
+                                                                                <th>Days Total</th>
+                                                                                <th>Days Eval</th>
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody>
                                                                             {#each contact.deals as deal}
                                                                                 <tr>
                                                                                     <td><a href="{DEAL_BASE_URL}{deal.id}/" target="_blank">#{deal.id}</a></td>
-                                                                                    <td>{deal.title}</td>
+                                                                                    <td>{deal.projectId && projectOptions[deal.projectId] ? projectOptions[deal.projectId] : deal.title}</td>
                                                                                     <td>{dayjs(deal.workStart).format('DD.MM.YYYY')}</td>
                                                                                     <td>{deal.workEnd ? dayjs(deal.workEnd).format('DD.MM.YYYY') : 'Present'}</td>
                                                                                     <td>{deal.days}</td>
+                                                                                    <td>{deal.evalDays}</td>
                                                                                 </tr>
                                                                             {/each}
                                                                         </tbody>

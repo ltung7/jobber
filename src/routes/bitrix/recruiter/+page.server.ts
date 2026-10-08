@@ -10,6 +10,8 @@ export const load: PageServerLoad = async ({ url }) => {
 
     // Fetch the Recruiter field metadata to map the choice IDs to human-readable names
     let recruiterOptions: Record<string, string> = {};
+    let projectOptions: Record<string, string> = {};
+    
     try {
         const contactFields = await bitrixService.getContactFieldsList();
         const recruiterField = contactFields.find(f => f.key === 'UF_CRM_1790672831151');
@@ -19,13 +21,23 @@ export const load: PageServerLoad = async ({ url }) => {
                 recruiterOptions[String(item.ID)] = item.VALUE;
             }
         }
+        
+        const dealFields = await bitrixService.getDealFields();
+        const projectField = dealFields['UF_CRM_1787822368903'];
+        
+        if (projectField && projectField.items) {
+            for (const item of projectField.items) {
+                projectOptions[String(item.ID)] = item.VALUE;
+            }
+        }
     } catch (e) {
-        console.error("Failed to load recruiter field options", e);
+        console.error("Failed to load field options", e);
     }
 
     return {
         selectedMonth,
         selectedYear,
-        recruiterOptions
+        recruiterOptions,
+        projectOptions
     };
 };

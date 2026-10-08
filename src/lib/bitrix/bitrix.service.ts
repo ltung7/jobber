@@ -701,6 +701,7 @@ const bitrixService = {
                 'CONTACT_ID',
                 'UF_CRM_1787746162988', // Work Start
                 'UF_CRM_1787746186953', // Work End
+                'UF_CRM_1787822368903', // Project
                 'ASSIGNED_BY_ID' // For fallback/display
             ]
         });
@@ -709,20 +710,27 @@ const bitrixService = {
     /**
      * Get ALL deals for a list of contacts within a wider timeframe (for evaluation).
      */
-    async getDealsForContacts(contactIds: (string | number)[], startDate: string, endDate: string): Promise<BitrixDeal[]> {
+    async getDealsForContacts(contactIds: (string | number)[], startDate: string | null, endDate: string): Promise<BitrixDeal[]> {
         if (!contactIds || contactIds.length === 0) return [];
+        
+        const filter: any = {
+            '@CONTACT_ID': contactIds,
+            '<=UF_CRM_1787746162988': endDate
+        };
+        
+        if (startDate) {
+            filter['>=UF_CRM_1787746162988'] = startDate;
+        }
+        
         return fetchPaginated<BitrixDeal>('crm.deal.list', {
-            filter: {
-                '@CONTACT_ID': contactIds,
-                '>=UF_CRM_1787746162988': startDate,
-                '<=UF_CRM_1787746162988': endDate
-            },
+            filter,
             select: [
                 'ID',
                 'TITLE',
                 'CONTACT_ID',
                 'UF_CRM_1787746162988', // Work Start
-                'UF_CRM_1787746186953'  // Work End
+                'UF_CRM_1787746186953', // Work End
+                'UF_CRM_1787822368903'  // Project
             ]
         });
     }

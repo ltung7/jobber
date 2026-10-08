@@ -143,4 +143,11 @@ To accommodate new evaluation rules without modifying existing endpoints and log
 - [x] **Step 15: Build Recruiter UI**
   - [x] Create `src/routes/bitrix/recruiter/+page.svelte`.
   - [x] Group by Recruiter name. Show totals (started vs. passed $\ge$ 30 days).
+  - [x] Join "N/A" (or its ID "1186") with "Unassigned" grouping.
   - [x] Display Contacts, their total worked days (warning style if $< 30$), and nested Deals with links.
+- [x] **Step 16: Download Recruiter Stats**
+  - [x] Create `DownloadRecruiterStats.svelte` component.
+  - [x] Implement function to export the data into an XLSX file with a consolidation sheet and separate sheets per recruiter.
+  - [x] Apply styles using `xlsxStyles.ts` (red headers, centered bordered).
+  - [x] Add the component to `+page.svelte` in the top right corner.
+  - [x] Ran `npm run check` after editing; result: `svelte-check found 0 errors and 0 warnings`.

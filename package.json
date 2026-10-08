@@ -1,7 +1,7 @@
 {
 	"name": "juliette",
 	"private": true,
-	"version": "0.0.20",
+	"version": "0.0.22",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
@@ -43,6 +43,7 @@
 		"sql-bricks": "^3.0.1",
 		"svelte-adapter-appengine": "^1.2.0",
 		"typescript-eslint": "^8.61.1",
-		"vitest": "^4.1.9"
+		"vitest": "^4.1.9",
+		"xlsx-js-style": "^1.2.0"
 	}
 }

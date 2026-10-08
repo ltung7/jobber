@@ -134,6 +134,7 @@ export interface BitrixDeal {
     UF_CRM_1787745029864?: string; // Surname
     UF_CRM_1787746162988?: string; // Work start
     UF_CRM_1787746186953?: string; // Work end
+    UF_CRM_1787822368903?: string; // Project
     [key: string]: any;
 }
 

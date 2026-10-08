@@ -48,8 +48,9 @@ export const GET: RequestHandler = async ({ url, setHeaders }) => {
             return json({ contacts: [] });
         }
 
-        // 2. Fetch ALL deals for these contacts within the expanded evaluation window
-        const allDeals = await bitrixService.getDealsForContacts(contactIds as string[], evalStart, evalEnd);
+        // 2. Fetch ALL deals for these contacts up to the evaluation end date
+        // (passing null as startDate ensures we get all historical deals to check for the very first deal)
+        const allDeals = await bitrixService.getDealsForContacts(contactIds as string[], null, evalEnd);
 
         // 3. Fetch Contacts data
         const contactsData = await bitrixService.getContactsByIds(contactIds as string[]);
@@ -64,12 +65,14 @@ export const GET: RequestHandler = async ({ url, setHeaders }) => {
                 recruiterId: c.UF_CRM_1790672831151 || 'Unassigned',
                 deals: [],
                 totalWorkedDays: 0,
+                totalWorkedDaysEval: 0,
                 isSuccessful: false,
-                startedInSelectedMonth: false
+                earliestWorkStart: null as dayjs.Dayjs | null
             });
         }
 
         const today = dayjs();
+        const absoluteEvalEnd = targetDate.add(1, 'month').endOf('month');
 
         for (const deal of allDeals) {
             if (!deal.CONTACT_ID) continue;
@@ -88,33 +91,49 @@ export const GET: RequestHandler = async ({ url, setHeaders }) => {
                 workEnd = today;
             }
 
-            // Calculate days (End Date - Start Date) + 1 maybe? Let's do diff in days.
+            // Calculate days (End Date - Start Date)
             const days = workEnd.diff(workStart, 'day');
-            // If they started and ended same day, is that 0 or 1? Let's say diff is fine, or diff + 1 if needed.
-            // "minimum 30 worked days" -> we will just use standard diff.
-            
             const dealDays = Math.max(0, days);
+
+            // Calculate eval days (Capped to absoluteEvalEnd)
+            let workEndEval = workEnd;
+            if (workEndEval.isAfter(absoluteEvalEnd)) {
+                workEndEval = absoluteEvalEnd;
+            }
+            const evalDays = workEndEval.diff(workStart, 'day');
+            const dealEvalDays = Math.max(0, evalDays);
 
             contactObj.deals.push({
                 id: deal.ID,
                 title: deal.TITLE,
+                projectId: deal.UF_CRM_1787822368903 || null,
                 workStart: workStartStr,
                 workEnd: deal.UF_CRM_1787746186953 || null,
-                days: dealDays
+                days: dealDays,
+                evalDays: dealEvalDays
             });
 
             contactObj.totalWorkedDays += dealDays;
+            contactObj.totalWorkedDaysEval += dealEvalDays;
 
-            // Check if this specific deal started in the selected month
-            if (workStart.format('YYYY-MM') === targetDate.format('YYYY-MM')) {
-                contactObj.startedInSelectedMonth = true;
+            // Track the absolute earliest work start date for this contact
+            if (!contactObj.earliestWorkStart || workStart.isBefore(contactObj.earliestWorkStart)) {
+                contactObj.earliestWorkStart = workStart;
             }
         }
 
+        const targetMonthStr = targetDate.format('YYYY-MM');
+
         const finalContacts = Array.from(contactsMap.values())
-            .filter(c => c.startedInSelectedMonth) // Only show contacts that ACTUALLY started in selected month
+            .filter(c => {
+                // Only show contacts whose absolute FIRST deal ever started in the selected month
+                if (!c.earliestWorkStart) return false;
+                return c.earliestWorkStart.format('YYYY-MM') === targetMonthStr;
+            })
             .map(c => {
                 c.isSuccessful = c.totalWorkedDays >= 30;
+                // Delete non-serializable object before sending as JSON
+                delete c.earliestWorkStart;
                 return c;
             });
 
