@@ -17,7 +17,7 @@
 <svelte:window bind:scrollY />
 
 <nav class="sidebar" class:scrolled>
-	<div class="sidebar-section">Tools</div>
+	<div class="sidebar-section">Offers</div>
 
 	<button class="sidebar-item {activeView === 'generator' ? 'active' : ''}" onclick={() => navigateTo('generator')}>
 		<UIcon name="table-layout" />
@@ -35,6 +35,13 @@
 		PDF Archive
 		<span class="badge-count">{loadedArchive ? archivedOffersCount : '?'}</span>
 	</button>
+
+	<div class="sidebar-section">Other Tools</div>
+
+	<a class="sidebar-item" href="/bitrix/recruiter">
+		<UIcon name="fraud-prevention" />
+		Recruiter provision
+	</a>
 
 	<div class="sidebar-settings">
 		<div class="sidebar-section">Configuration</div>

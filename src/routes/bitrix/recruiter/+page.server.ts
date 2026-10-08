@@ -3,8 +3,8 @@ import dayjs from 'dayjs';
 import bitrixService from '$lib/bitrix/bitrix.service';
 
 export const load: PageServerLoad = async ({ url }) => {
-    // Determine the month and year requested by the user, defaulting to the previous calendar month
-    const defaultDate = dayjs().subtract(1, 'month');
+    // Determine the month and year requested by the user, defaulting to 2 months ago (ready to calculate provision)
+    const defaultDate = dayjs().subtract(2, 'month');
     const selectedMonth = url.searchParams.get('month') || defaultDate.format('MM');
     const selectedYear = url.searchParams.get('year') || defaultDate.format('YYYY');
 

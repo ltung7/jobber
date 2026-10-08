@@ -109,6 +109,6 @@
     };
 </script>
 
-<button class="btn btn-primary d-flex align-items-center gap-2" onclick={downloadStats} title="Download Stats (XLSX)">
-    <UIcon name="download" /> Download Stats
+<button class="btn btn-primary d-flex align-items-center" onclick={downloadStats} title="Download Stats (XLSX)">
+    <UIcon name="download" /><span class="ms-2">Download Stats</span>
 </button>

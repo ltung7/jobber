@@ -6,21 +6,31 @@ import dayjs from 'dayjs';
 export const GET: RequestHandler = async ({ url, setHeaders }) => {
     let monthParam = url.searchParams.get('month');
     let yearParam = url.searchParams.get('year');
+    let fromParam = url.searchParams.get('from');
+    let toParam = url.searchParams.get('to');
 
-    let targetDate = dayjs();
-    
-    // Determine target month based on query params
-    if (yearParam && monthParam) {
-        targetDate = dayjs(`${yearParam}-${monthParam.padStart(2, '0')}-01`);
-    } else if (monthParam && monthParam.includes('-')) {
-        targetDate = dayjs(monthParam);
+    let fromDate: dayjs.Dayjs;
+    let toDate: dayjs.Dayjs;
+
+    if (fromParam && toParam) {
+        fromDate = dayjs(`${fromParam}-01`).startOf('month');
+        toDate = dayjs(`${toParam}-01`).endOf('month');
     } else {
-        targetDate = targetDate.subtract(1, 'month');
+        let targetDate = dayjs();
+        if (yearParam && monthParam) {
+            targetDate = dayjs(`${yearParam}-${monthParam.padStart(2, '0')}-01`);
+        } else if (monthParam && monthParam.includes('-')) {
+            targetDate = dayjs(monthParam);
+        } else {
+            targetDate = targetDate.subtract(2, 'month');
+        }
+        fromDate = targetDate.startOf('month');
+        toDate = targetDate.endOf('month');
     }
 
     // Determine selected month boundaries (e.g. October 1 to October 31)
-    const selectedMonthStart = targetDate.startOf('month').format('YYYY-MM-DD');
-    const selectedMonthEnd = targetDate.endOf('month').format('YYYY-MM-DD');
+    const selectedMonthStart = fromDate.format('YYYY-MM-DD');
+    const selectedMonthEnd = toDate.format('YYYY-MM-DD');
 
     // Determine evaluation period for all deals (From 2 months ago to yesterday, or end of next month)
     // "deals need to taken into account are all deals from 2 months ago up to this day"
@@ -28,10 +38,10 @@ export const GET: RequestHandler = async ({ url, setHeaders }) => {
     // "filter: start work last 2 month (from start to end)" -> Let's use 2 months prior to selectedMonthStart
     // and up to "today" or end of next month as requested ("october + next month or yesterday").
     
-    const evalStart = targetDate.subtract(2, 'month').startOf('month').format('YYYY-MM-DD');
+    const evalStart = fromDate.subtract(2, 'month').startOf('month').format('YYYY-MM-DD');
     
     // evaluation end is next month end, OR yesterday, whichever is earlier.
-    const nextMonthEnd = targetDate.add(1, 'month').endOf('month');
+    const nextMonthEnd = toDate.add(1, 'month').endOf('month');
     const yesterday = dayjs().subtract(1, 'day').endOf('day');
     const evalEnd = nextMonthEnd.isBefore(yesterday) 
         ? nextMonthEnd.format('YYYY-MM-DD')
@@ -72,7 +82,7 @@ export const GET: RequestHandler = async ({ url, setHeaders }) => {
         }
 
         const today = dayjs();
-        const absoluteEvalEnd = targetDate.add(1, 'month').endOf('month');
+        const absoluteEvalEnd = toDate.add(1, 'month').endOf('month');
 
         for (const deal of allDeals) {
             if (!deal.CONTACT_ID) continue;
@@ -122,13 +132,11 @@ export const GET: RequestHandler = async ({ url, setHeaders }) => {
             }
         }
 
-        const targetMonthStr = targetDate.format('YYYY-MM');
-
         const finalContacts = Array.from(contactsMap.values())
             .filter(c => {
-                // Only show contacts whose absolute FIRST deal ever started in the selected month
+                // Only show contacts whose absolute FIRST deal ever started in the selected month(s)
                 if (!c.earliestWorkStart) return false;
-                return c.earliestWorkStart.format('YYYY-MM') === targetMonthStr;
+                return !c.earliestWorkStart.isBefore(fromDate, 'day') && !c.earliestWorkStart.isAfter(toDate, 'day');
             })
             .map(c => {
                 c.isSuccessful = c.totalWorkedDays >= 30;
@@ -138,7 +146,7 @@ export const GET: RequestHandler = async ({ url, setHeaders }) => {
             });
 
         setHeaders({
-            "cache-control": "max-age=300"
+            "cache-control": "max-age=3600"
         });
 
         return json({ contacts: finalContacts });
