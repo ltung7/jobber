@@ -191,8 +191,12 @@
 			}
 		}
 
-		// Return sorted array (most successful first)
-		return Object.values(grouped).sort((a: any, b: any) => b.totalSuccessful - a.totalSuccessful || b.totalStarted - a.totalStarted);
+		// Return sorted array (most successful first, but keep 'Unassigned' at the bottom)
+		return Object.values(grouped).sort((a: any, b: any) => {
+			if (a.recruiterId === 'Unassigned' && b.recruiterId !== 'Unassigned') return 1;
+			if (b.recruiterId === 'Unassigned' && a.recruiterId !== 'Unassigned') return -1;
+			return b.totalSuccessful - a.totalSuccessful || b.totalStarted - a.totalStarted;
+		});
 	});
 
 	// High level metrics
@@ -230,11 +234,23 @@
 		return AVATAR_PALETTES[index];
 	}
 
+	let sortColumn = $state<string>('id');
+	let sortDirection = $state<'asc' | 'desc'>('asc');
+
+	function toggleSort(col: string) {
+		if (sortColumn === col) {
+			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortColumn = col;
+			sortDirection = 'asc';
+		}
+	}
+
 	function getFilteredContacts(group: any) {
 		const search = (recruiterSearch[group.recruiterId] || '').trim().toLowerCase();
 		const filter = recruiterStatusFilter[group.recruiterId] || 'all';
 
-		return group.contacts.filter((c: any) => {
+		let filtered = group.contacts.filter((c: any) => {
 			if (filter === 'passed' && !c.isSuccessful) return false;
 			if (filter === 'failed' && c.isSuccessful) return false;
 
@@ -245,6 +261,45 @@
 			}
 			return true;
 		});
+
+		filtered.sort((a: any, b: any) => {
+			let valA, valB;
+			switch (sortColumn) {
+				case 'id':
+					valA = parseInt(a.id);
+					valB = parseInt(b.id);
+					break;
+				case 'name':
+					valA = (a.name || '').toLowerCase();
+					valB = (b.name || '').toLowerCase();
+					break;
+				case 'placement':
+					valA = getPlacementName(a).toLowerCase();
+					valB = getPlacementName(b).toLowerCase();
+					break;
+				case 'totalWorkedDays':
+					valA = a.totalWorkedDays || 0;
+					valB = b.totalWorkedDays || 0;
+					break;
+				case 'evalPeriodDays':
+					valA = a.totalWorkedDaysEval || 0;
+					valB = b.totalWorkedDaysEval || 0;
+					break;
+				case 'status':
+					valA = a.isSuccessful ? 1 : 0;
+					valB = b.isSuccessful ? 1 : 0;
+					break;
+				default:
+					valA = parseInt(a.id);
+					valB = parseInt(b.id);
+			}
+
+			if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+			if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+			return 0;
+		});
+
+		return filtered;
 	}
 
 	function getPlacementName(contact: any): string {
@@ -556,7 +611,7 @@
 									}}
 								>
 									<div class="d-flex align-items-center gap-3">
-										<span class="status-pulse-dot bg-success flex-shrink-0"></span>
+										<span class="status-pulse-dot {group.recruiterId === 'Unassigned' ? 'bg-warning' : 'bg-success'} flex-shrink-0"></span>
 										<div>
 											<div class="d-flex align-items-center gap-2 flex-wrap">
 												<h2 class="h5 fw-bold text-slate-900 mb-0">{group.recruiterName}</h2>
@@ -599,7 +654,7 @@
 
 											<div class="d-flex align-items-center gap-2">
 												<span class="text-xs text-secondary fw-semibold me-1">Filter:</span>
-												<div class="btn-group btn-group-sm shadow-xs rounded-pill p-0.5 bg-white border" role="group">
+												<div class="btn-group btn-group-sm shadow-xs rounded-pill p-0.5 bg-white border gap-2" role="group">
 													<button type="button" class="btn btn-sm rounded-pill px-2.5 py-0.5 text-xs fw-semibold {activeFilter === 'all' ? 'btn-primary' : 'btn-light text-secondary'}" onclick={() => (recruiterStatusFilter[group.recruiterId] = 'all')}>
 														All ({group.contacts.length})
 													</button>
@@ -618,17 +673,55 @@
 											<table class="table align-middle mb-0 custom-contacts-table">
 												<thead>
 													<tr>
-														<th class="ps-3" style="width: 80px;">ID</th>
-														<th>CONTACT / CONTRACTOR NAME</th>
-														<th>PLACEMENT FIRM</th>
-														<th class="text-center" style="width: 160px;">
-															<TooltipText text="TOTAL WORKED DAYS" hoverText="Sum of worked days across all deals. Target &ge; 30 days to qualify for commission." placement="top" />
+														<th class="ps-3 cursor-pointer user-select-none hover-dark" style="width: 80px;" onclick={() => toggleSort('id')}>
+															<div class="d-flex align-items-center gap-1">
+																ID
+																{#if sortColumn === 'id'}
+																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																{/if}
+															</div>
 														</th>
-														<th class="text-center" style="width: 140px;">
-															<TooltipText text="EVAL PERIOD DAYS" hoverText="Worked days evaluated strictly in the 2-month qualifying window." placement="top" />
+														<th class="cursor-pointer user-select-none hover-dark" onclick={() => toggleSort('name')}>
+															<div class="d-flex align-items-center gap-1">
+																CONTRACTOR NAME
+																{#if sortColumn === 'name'}
+																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																{/if}
+															</div>
 														</th>
-														<th class="text-center" style="width: 120px;">STATUS</th>
-														<th class="text-end pe-3" style="width: 140px;">DEALS / ENGAGEMENTS</th>
+														<th class="cursor-pointer user-select-none hover-dark" onclick={() => toggleSort('placement')}>
+															<div class="d-flex align-items-center gap-1">
+																PROJECT
+																{#if sortColumn === 'placement'}
+																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																{/if}
+															</div>
+														</th>
+														<th class="text-center cursor-pointer user-select-none hover-dark" style="width: 160px;" onclick={() => toggleSort('totalWorkedDays')}>
+															<div class="d-flex align-items-center justify-content-center gap-1">
+																<TooltipText text="TOTAL WORKED DAYS" hoverText="Sum of worked days across all deals. Target &ge; 30 days to qualify for commission." placement="top" />
+																{#if sortColumn === 'totalWorkedDays'}
+																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																{/if}
+															</div>
+														</th>
+														<th class="text-center cursor-pointer user-select-none hover-dark" style="width: 140px;" onclick={() => toggleSort('evalPeriodDays')}>
+															<div class="d-flex align-items-center justify-content-center gap-1">
+																<TooltipText text="EVAL PERIOD DAYS" hoverText="Worked days evaluated strictly in the 2-month qualifying window." placement="top" />
+																{#if sortColumn === 'evalPeriodDays'}
+																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																{/if}
+															</div>
+														</th>
+														<th class="text-center cursor-pointer user-select-none hover-dark" style="width: 120px;" onclick={() => toggleSort('status')}>
+															<div class="d-flex align-items-center justify-content-center gap-1">
+																STATUS
+																{#if sortColumn === 'status'}
+																	<UIcon name={sortDirection === 'asc' ? 'angle-up' : 'angle-down'} size="6" />
+																{/if}
+															</div>
+														</th>
+														<th class="text-end pe-3" style="width: 140px;">DEALS</th>
 													</tr>
 												</thead>
 												<tbody>
@@ -836,7 +929,7 @@
 	</div>
 
 	<!-- GLOBAL COMPLIANCE STATUS BAR -->
-	<footer class="py-3 px-4 bg-white border-top border-slate-200 mt-5">
+	<footer class="py-3 px-4 bg-white border-top border-slate-200 w-100 shadow-sm" style="z-index: 1020;">
 		<div class="container-fluid px-0 d-flex flex-wrap align-items-center justify-content-between gap-3 text-2xs text-secondary">
 			<div class="d-flex align-items-center gap-2">
 				<span>&copy; {dayjs().format('YYYY')} EISG</span>
@@ -868,6 +961,7 @@
 	.dashboard-wrapper {
 		background-color: #f6f8fc;
 		min-height: 100vh;
+		padding-bottom: 60px;
 		font-family:
 			'Montserrat',
 			system-ui,
@@ -1160,6 +1254,10 @@
 
 	.hover-dark:hover {
 		color: #0f172a !important;
+	}
+
+	.user-select-none {
+		user-select: none;
 	}
 
 	.hover-shadow:hover {
