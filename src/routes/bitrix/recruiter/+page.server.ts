@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import dayjs from 'dayjs';
 import bitrixService from '$lib/bitrix/bitrix.service';
+import { findRecruiterPayouts } from '$lib/server/db/firebase/recruiterPayout.fdb';
 
 export const load: PageServerLoad = async ({ url }) => {
     // Determine the month and year requested by the user, defaulting to 2 months ago (ready to calculate provision)
@@ -34,10 +35,18 @@ export const load: PageServerLoad = async ({ url }) => {
         console.error("Failed to load field options", e);
     }
 
+    let payouts: any[] = [];
+    try {
+        payouts = await findRecruiterPayouts();
+    } catch (e) {
+        console.error("Failed to load recruiter payouts", e);
+    }
+
     return {
         selectedMonth,
         selectedYear,
         recruiterOptions,
-        projectOptions
+        projectOptions,
+        payouts
     };
 };

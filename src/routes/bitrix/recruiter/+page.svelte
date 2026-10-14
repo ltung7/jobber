@@ -8,6 +8,7 @@
 	import ClosableModal from '$lib/misc/ClosableModal.svelte';
 	import Flatpickr from 'svelte-flatpickr';
 	import 'flatpickr/dist/flatpickr.css';
+	import { addToast } from '$lib/toast';
 
 	const CONTACT_BASE_URL = 'https://eisg.bitrix24.pl/crm/contact/details/';
 	const DEAL_BASE_URL = 'https://eisg.bitrix24.pl/crm/deal/details/';
@@ -29,10 +30,18 @@
 	};
 
 	let contacts = $state<any[]>([]);
+	let payouts = $state<any[]>(untrack(() => data.payouts || []));
 	let loading = $state(true);
 	let expandedRecruiters = $state<Record<string, boolean>>({});
 	let expandedContacts = $state<Record<string, boolean>>({});
 	let projectOptions = $state<Record<string, string>>(untrack(() => data.projectOptions || {}));
+
+	// Payment modal state
+	let isPaymentModalOpen = $state(false);
+	let selectedRecruiterForPayment = $state<string>('');
+	let payoutValue = $state<number>(0);
+	let paymentNote = $state<string>('');
+	let submittingPayment = $state(false);
 
 	// Search and filter states
 	let monthSearch = $state('');
@@ -79,6 +88,9 @@
 				contacts = response.contacts;
 			} else {
 				contacts = [];
+			}
+			if (response && response.payouts) {
+				payouts = response.payouts;
 			}
 		} catch (err) {
 			console.error('Failed to fetch recruiter analytics', err);
@@ -158,6 +170,13 @@
 		fetchAnalytics(selectedYear, selectedMonth);
 	});
 
+	function isAssignedRecruiter(rId: string | undefined): boolean {
+		if (!rId || rId === 'Unassigned' || rId === '1186' || rId === 'N/A') return false;
+		const rName = data?.recruiterOptions ? data.recruiterOptions[rId] : undefined;
+		if (rName === 'N/A') return false;
+		return true;
+	}
+
 	// Aggregate data grouped by recruiter
 	let aggregated = $derived.by(() => {
 		const grouped: Record<string, any> = {};
@@ -200,12 +219,115 @@
 	});
 
 	// High level metrics
-	const totalContractors = $derived(contacts.length);
-	const totalPassed = $derived(contacts.filter((c) => c.isSuccessful).length);
+	const assignedContacts = $derived(contacts.filter((c) => isAssignedRecruiter(c.recruiterId)));
+	const totalContractors = $derived(assignedContacts.length);
+	const unassignedCount = $derived(contacts.length - totalContractors);
+	const assignedPercentage = $derived(contacts.length > 0 ? ((totalContractors / contacts.length) * 100).toFixed(1) : '0.0');
+	// Only calculate totalPassed when recruiter is neither unassigned nor "N/A"
+	const totalPassed = $derived(assignedContacts.filter((c) => c.isSuccessful).length);
 	const passRate = $derived(totalContractors > 0 ? ((totalPassed / totalContractors) * 100).toFixed(1) : '0.0');
-	const totalCumulativeDays = $derived(contacts.reduce((sum, c) => sum + (c.totalWorkedDays || 0), 0));
+	const totalCumulativeDays = $derived(assignedContacts.reduce((sum, c) => sum + (c.totalWorkedDays || 0), 0));
 	const avgDaysPerResource = $derived(totalContractors > 0 ? (totalCumulativeDays / totalContractors).toFixed(1) : '0.0');
 	const provisionForecast = $derived((totalPassed * 150).toLocaleString('de-DE'));
+
+	// Filter payouts for the active period window
+	let periodPayouts = $derived(
+		payouts.filter((p) => {
+			if (customFrom && customTo) {
+				const pDate = `${p.year}-${String(p.month).padStart(2, '0')}`;
+				return pDate >= customFrom && pDate <= customTo;
+			}
+			return p.year === selectedYear && String(p.month).padStart(2, '0') === String(selectedMonth).padStart(2, '0');
+		})
+	);
+
+	let totalPaidInPeriod = $derived(periodPayouts.reduce((sum, p) => sum + (Number(p.payoutValue) || 0), 0));
+
+	// Eligible recruiters for payments (neither unassigned nor N/A)
+	let eligibleRecruiters = $derived.by(() => {
+		const list = aggregated.filter((g) => g.recruiterId !== 'Unassigned' && isAssignedRecruiter(g.recruiterId));
+		const listIds = new Set(list.map((g) => g.recruiterId));
+
+		if (data?.recruiterOptions) {
+			for (const [id, name] of Object.entries(data.recruiterOptions)) {
+				if (isAssignedRecruiter(id) && !listIds.has(id)) {
+					list.push({
+						recruiterId: id,
+						recruiterName: name,
+						contacts: [],
+						totalStarted: 0,
+						totalSuccessful: 0
+					});
+				}
+			}
+		}
+		return list;
+	});
+
+	let selectedPaymentGroup = $derived(eligibleRecruiters.find((g) => g.recruiterId === selectedRecruiterForPayment));
+
+	let selectedPaymentPassedContractors = $derived(selectedPaymentGroup ? selectedPaymentGroup.contacts.filter((c: any) => c.isSuccessful) : []);
+
+	function openPaymentModal(recruiterId?: string) {
+		const targetId = recruiterId || (eligibleRecruiters.length > 0 ? eligibleRecruiters[0].recruiterId : '');
+		selectRecruiterForPayment(targetId);
+		paymentNote = '';
+		isPaymentModalOpen = true;
+	}
+
+	function selectRecruiterForPayment(recruiterId: string) {
+		selectedRecruiterForPayment = recruiterId;
+		const group = eligibleRecruiters.find((g) => g.recruiterId === recruiterId);
+		const passedCount = group ? group.contacts.filter((c: any) => c.isSuccessful).length : 0;
+		// calculate default based on passed contractor * 150
+		payoutValue = passedCount * 150;
+	}
+
+	async function submitPayment() {
+		if (!selectedRecruiterForPayment) {
+			addToast('Please select a recruiter', 'warning');
+			return;
+		}
+		if (payoutValue < 0) {
+			addToast('Payout value must be a positive number', 'warning');
+			return;
+		}
+
+		submittingPayment = true;
+		const group = selectedPaymentGroup;
+		const passed = selectedPaymentPassedContractors;
+
+		const payload = {
+			recruiterId: selectedRecruiterForPayment,
+			recruiterName: group?.recruiterName || data?.recruiterOptions?.[selectedRecruiterForPayment] || '',
+			payoutValue: Number(payoutValue),
+			month: selectedMonth,
+			year: selectedYear,
+			includedContractors: passed.map((c: any) => ({
+				id: c.id,
+				name: c.name || '',
+				days: c.totalWorkedDays || 0
+			})),
+			note: paymentNote.trim()
+		};
+
+		try {
+			const response: any = await internal.postApi(payload);
+			if (response && (response.success || response.id)) {
+				addToast('Payment recorded successfully!', 'success');
+				const savedItem = response.payout || { ...payload, id: response.id, createdAt: new Date().toISOString() };
+				payouts = [savedItem, ...payouts];
+				isPaymentModalOpen = false;
+			} else {
+				addToast(response?.error || 'Failed to record payment', 'danger');
+			}
+		} catch (err: any) {
+			console.error('Failed to submit payment', err);
+			addToast(err?.message || 'Error recording payment', 'danger');
+		} finally {
+			submittingPayment = false;
+		}
+	}
 
 	// Avatar styling helper
 	const AVATAR_PALETTES = [
@@ -360,6 +482,112 @@
 		{/snippet}
 	</ClosableModal>
 
+	<ClosableModal bind:isOpen={isPaymentModalOpen} headerText="Add Recruiter Payment" size="lg">
+		<div class="p-2">
+			<div class="row g-3">
+				<!-- Recruiter Select -->
+				<div class="col-12 col-md-6">
+					<label for="recruiterSelect" class="form-label text-xs fw-bold text-slate-700 text-uppercase mb-1">
+						Select Recruiter <span class="text-danger">*</span>
+					</label>
+					<select id="recruiterSelect" class="form-select form-select-sm rounded-3 text-xs border-slate-200" value={selectedRecruiterForPayment} onchange={(e) => selectRecruiterForPayment(e.currentTarget.value)}>
+						<option value="" disabled>-- Select Recruiter --</option>
+						{#each eligibleRecruiters as rec (rec.recruiterId)}
+							<option value={rec.recruiterId}>
+								{rec.recruiterName} ({rec.totalSuccessful} passed)
+							</option>
+						{/each}
+					</select>
+				</div>
+
+				<!-- Payout Value Input -->
+				<div class="col-12 col-md-6">
+					<label for="payoutValueInput" class="form-label text-xs fw-bold text-slate-700 text-uppercase mb-1">
+						Payout Value (&euro;) <span class="text-danger">*</span>
+					</label>
+					<div class="input-group input-group-sm">
+						<span class="input-group-text bg-slate-100 text-slate-700 fw-bold border-slate-200">&euro;</span>
+						<input id="payoutValueInput" type="number" class="form-control form-control-sm text-xs border-slate-200" bind:value={payoutValue} min="0" step="50" placeholder="0" />
+					</div>
+					<div class="text-muted text-2xs mt-1">
+						Default calculation: {selectedPaymentPassedContractors.length} passed &times; &euro;150 = &euro;{selectedPaymentPassedContractors.length * 150}
+					</div>
+				</div>
+
+				<!-- Target Billing Period Notice -->
+				<div class="col-12">
+					<div class="p-2.5 bg-slate-50 rounded-3 border border-slate-200 d-flex flex-wrap align-items-center justify-content-between gap-2 text-xs">
+						<div>
+							<span class="text-secondary">Target Billing Period:</span>
+							<strong class="text-slate-800 ms-1">{selectedMonthLabel} ({selectedYear}-{selectedMonth})</strong>
+						</div>
+						<div>
+							<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 text-2xs fw-semibold"> Quota Rate: &euro;150 / contractor </span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Notes -->
+				<div class="col-12">
+					<label for="paymentNote" class="form-label text-xs fw-bold text-slate-700 text-uppercase mb-1"> Notes / Reference (Optional) </label>
+					<input id="paymentNote" type="text" class="form-control form-control-sm text-xs border-slate-200" placeholder="e.g. Monthly quota payout approval" bind:value={paymentNote} />
+				</div>
+
+				<!-- Included Contractors -->
+				<div class="col-12">
+					<div class="d-flex align-items-center justify-content-between mb-1.5">
+						<span class="text-xs fw-bold text-slate-700 text-uppercase">
+							Included Contractors ({selectedPaymentPassedContractors.length})
+						</span>
+						<span class="text-2xs text-secondary"> Contractors reaching &ge; 30 worked days </span>
+					</div>
+
+					{#if selectedPaymentPassedContractors.length === 0}
+						<div class="alert alert-light border border-slate-200 text-secondary text-xs py-2 px-3 mb-0 rounded-3">No passed contractors found for this recruiter in the selected period. Default payout is &euro;0.</div>
+					{:else}
+						<div class="table-responsive border border-slate-200 rounded-3 max-h-200">
+							<table class="table table-sm align-middle mb-0 text-xs">
+								<thead class="table-light text-2xs text-muted text-uppercase">
+									<tr>
+										<th class="ps-3 py-1.5">ID</th>
+										<th class="py-1.5">Contractor Name</th>
+										<th class="py-1.5 text-center">Worked Days</th>
+										<th class="py-1.5 text-end pe-3">Quota Credit</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each selectedPaymentPassedContractors as contractor (contractor.id)}
+										<tr>
+											<td class="ps-3 py-1.5 fw-semibold text-primary">#{contractor.id}</td>
+											<td class="py-1.5 fw-medium text-slate-800">{contractor.name || 'Unnamed'}</td>
+											<td class="py-1.5 text-center">
+												<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2 py-0.5 text-2xs fw-bold">
+													{contractor.totalWorkedDays} days
+												</span>
+											</td>
+											<td class="py-1.5 text-end pe-3 text-success fw-bold text-2xs"> + &euro;150 </td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+		{#snippet footer()}
+			<button type="button" class="btn btn-success btn-sm px-4 fw-semibold shadow-xs d-inline-flex align-items-center" onclick={submitPayment} disabled={!selectedRecruiterForPayment || submittingPayment}>
+				{#if submittingPayment}
+					<span class="spinner-border spinner-border-sm me-1.5" role="status"></span>
+					<span>Saving...</span>
+				{:else}
+					<UIcon name="check" size="6" />
+					<span class="ms-1.5">Confirm &amp; Save Payout</span>
+				{/if}
+			</button>
+		{/snippet}
+	</ClosableModal>
+
 	<div class="container-fluid px-4 py-4 max-w-1600">
 		<!-- PAGE TITLE & MAIN ACTIONS -->
 		<div class="row align-items-center mb-4 g-3">
@@ -377,6 +605,10 @@
 			</div>
 
 			<div class="col-lg-4 d-flex justify-content-lg-end align-items-center gap-2">
+				<button type="button" class="btn btn-success btn-sm d-flex align-items-center px-3 py-2 rounded-3 shadow-xs" onclick={() => openPaymentModal()}>
+					<UIcon name="plus" size="6" /><span class="ms-2 fw-semibold text-xs">Add Payment</span>
+				</button>
+
 				{#if !loading && aggregated.length > 0}
 					<DownloadRecruiterStats {aggregated} {selectedYear} {selectedMonth} />
 				{:else}
@@ -405,9 +637,9 @@
 									<span class="stat-value">{totalContractors}</span>
 									<span class="text-secondary small fw-medium">Contractors</span>
 								</div>
-								<div class="stat-footer mt-1 text-success d-flex align-items-center">
-									<UIcon name="check-circle" size="6" />
-									<span class="ms-2">100% evaluated against 30d baseline</span>
+								<div class="stat-footer mt-1 text-secondary d-flex align-items-center">
+									<UIcon name="info" size="6" />
+									<span class="ms-2"><strong class="text-slate-800">{unassignedCount}</strong> unassigned contacts ({assignedPercentage}% assigned)</span>
 								</div>
 							</div>
 						</div>
@@ -472,15 +704,26 @@
 						<div class="card-body p-3.5 d-flex flex-column justify-content-between">
 							<div class="d-flex align-items-start justify-content-between mb-2">
 								<span class="stat-label">Provision Forecast</span>
-								<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis fw-bold text-xs px-2 py-0.5"> Release Ready </span>
+								{#if totalPaidInPeriod > 0}
+									<span class="badge rounded-pill bg-success-subtle text-success fw-bold text-xs px-2.5 py-1">
+										&euro;{totalPaidInPeriod.toLocaleString('de-DE')} Recorded
+									</span>
+								{:else}
+									<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis fw-bold text-xs px-2 py-0.5"> Release Ready </span>
+								{/if}
 							</div>
 							<div>
 								<div class="d-flex align-items-baseline gap-2">
 									<span class="stat-value">€{provisionForecast}</span>
-									<span class="text-success small fw-semibold">+12.4% MoM</span>
 								</div>
 								<div class="stat-footer mt-1 text-secondary">
 									<strong class="text-slate-800">{totalPassed}</strong> Approved accounts ready for payout
+									{#if totalPaidInPeriod > 0}
+										<div class="text-success fw-semibold mt-1 d-flex align-items-center gap-1">
+											<UIcon name="check-circle" size="6" />
+											<span>&euro;{totalPaidInPeriod.toLocaleString('de-DE')} recorded in system</span>
+										</div>
+									{/if}
 								</div>
 							</div>
 						</div>
@@ -590,6 +833,67 @@
 						<p class="text-secondary small mb-0">There are no contacts with their absolute first deal starting in {selectedMonthLabel}.</p>
 					</div>
 				{:else}
+					<!-- RECORDED PAYOUTS SUMMARY FOR ACTIVE PERIOD (IF ANY) -->
+					{#if periodPayouts.length > 0}
+						<div class="card shadow-xs border-success-subtle bg-white rounded-3 mb-3 overflow-hidden">
+							<div class="card-header bg-emerald-50 border-bottom border-emerald-200 py-2.5 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+								<div class="d-flex align-items-center text-emerald-900">
+									<UIcon name="credit-card" size="6" class="text-success" />
+									<span class="ms-2 fw-bold text-xs tracking-wider text-uppercase">Recorded Payouts for {selectedMonthLabel}</span>
+									<span class="badge bg-success text-white rounded-pill ms-2 px-2 py-0.5 text-2xs">
+										{periodPayouts.length} Recorded
+									</span>
+								</div>
+								<div class="text-xs fw-bold text-emerald-900">
+									Total Period Paid: <span class="text-success fs-6">&euro;{totalPaidInPeriod.toLocaleString('de-DE')}</span>
+								</div>
+							</div>
+							<div class="table-responsive">
+								<table class="table table-sm align-middle mb-0 text-xs">
+									<thead class="table-light text-2xs text-muted text-uppercase">
+										<tr>
+											<th class="ps-3 py-2">Recruiter</th>
+											<th class="py-2 text-center">Amount</th>
+											<th class="py-2">Included Contractors</th>
+											<th class="py-2 text-center">Date Recorded</th>
+											<th class="py-2 pe-3">Notes</th>
+										</tr>
+									</thead>
+									<tbody>
+										{#each periodPayouts as p (p.id || p.createdAt)}
+											<tr>
+												<td class="ps-3 py-2 fw-bold text-slate-800">
+													{p.recruiterName || (data.recruiterOptions?.[p.recruiterId] ?? `#${p.recruiterId}`)}
+												</td>
+												<td class="py-2 text-center">
+													<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-bold text-xs">
+														&euro;{Number(p.payoutValue).toLocaleString('de-DE')}
+													</span>
+												</td>
+												<td class="py-2 text-slate-700">
+													{#if p.includedContractors && p.includedContractors.length > 0}
+														<span class="fw-semibold">{p.includedContractors.length} Contractor(s):</span>
+														<span class="text-muted ms-1 text-2xs">
+															{p.includedContractors.map((c: any) => `${c.name || '#' + c.id} (${c.days}d)`).join(', ')}
+														</span>
+													{:else}
+														<span class="text-muted italic">None specified</span>
+													{/if}
+												</td>
+												<td class="py-2 text-center text-muted text-2xs">
+													{dayjs(p.createdAt).format('DD.MM.YYYY HH:mm')}
+												</td>
+												<td class="py-2 pe-3 text-secondary text-2xs">
+													{p.note || '—'}
+												</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					{/if}
+
 					<div class="d-flex flex-column gap-3">
 						{#each aggregated as group, index (group.recruiterId)}
 							{@const isExpanded = isRecruiterExpanded(group.recruiterId, index)}
@@ -622,7 +926,28 @@
 										</div>
 									</div>
 
-									<div class="d-flex align-items-center gap-2.5">
+									<div class="d-flex align-items-center gap-2 flex-wrap">
+										{#if group.recruiterId !== 'Unassigned'}
+											{@const groupPayouts = periodPayouts.filter((p) => p.recruiterId === group.recruiterId)}
+											{#if groupPayouts.length > 0}
+												{@const groupPaidTotal = groupPayouts.reduce((s, p) => s + (Number(p.payoutValue) || 0), 0)}
+												<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-2 text-xs fw-bold d-inline-flex align-items-center">
+													<UIcon name="check-circle" size="6" /><span class="ms-1.5">Paid: &euro;{groupPaidTotal.toLocaleString('de-DE')}</span>
+												</span>
+											{/if}
+											<button
+												type="button"
+												class="btn btn-sm btn-outline-success rounded-pill px-3 py-2 text-xs fw-bold d-inline-flex align-items-center gap-1 shadow-xs"
+												onclick={(e) => {
+													e.stopPropagation();
+													openPaymentModal(group.recruiterId);
+												}}
+											>
+												<UIcon name="plus" size="6" />
+												<span>Add Payment</span>
+											</button>
+										{/if}
+
 										<span class="badge rounded-pill bg-success text-white px-3 py-2 text-xs fw-bold shadow-xs d-inline-flex align-items-center">
 											<UIcon name="check" size="6" /><span class="ms-2">{group.totalSuccessful} / {group.totalStarted} Passed</span>
 										</span>
@@ -1269,5 +1594,26 @@
 
 	.cursor-pointer {
 		cursor: pointer;
+	}
+
+	.max-h-200 {
+		max-height: 200px;
+		overflow-y: auto;
+	}
+
+	.bg-emerald-50 {
+		background-color: #ecfdf5;
+	}
+
+	.border-emerald-200 {
+		border-color: #a7f3d0 !important;
+	}
+
+	.text-emerald-900 {
+		color: #064e3b;
+	}
+	button.btn.btn-outline-success.py-2 {
+		padding-top: calc(0.5rem - 1px) !important;
+		padding-bottom: calc(0.5rem - 1px) !important;
 	}
 </style>

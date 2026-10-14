@@ -114,6 +114,8 @@ export interface BitrixLead {
     DATE_CREATE: string;
     DATE_MODIFY: string;
     DATE_CLOSED?: string;
+    CONTACT_ID?: string;
+    UF_CRM_LEAD_RECRUITER?: string; // Lead Recruiter Enum ID
     [key: string]: any;
 }
 
@@ -135,6 +137,8 @@ export interface BitrixDeal {
     UF_CRM_1787746162988?: string; // Work start
     UF_CRM_1787746186953?: string; // Work end
     UF_CRM_1787822368903?: string; // Project
+    UF_CRM_1790681629518?: string; // Recruiter (String - Deprecated)
+    UF_CRM_DEAL_RECRUITER?: string; // Recruiter (Enum)
     [key: string]: any;
 }
 

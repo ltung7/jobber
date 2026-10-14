@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import bitrixService from '$lib/bitrix/bitrix.service';
+import { addRecruiterPayout, findRecruiterPayouts, type RecruiterPayout } from '$lib/server/db/firebase/recruiterPayout.fdb';
 import dayjs from 'dayjs';
 
 export const GET: RequestHandler = async ({ url, setHeaders }) => {
@@ -54,8 +55,26 @@ export const GET: RequestHandler = async ({ url, setHeaders }) => {
         // Extract unique contact IDs
         const contactIds = Array.from(new Set(initialDeals.map(d => d.CONTACT_ID).filter(Boolean)));
         
+        // Fetch saved recruiter payouts
+        let allPayouts: any[] = [];
+        try {
+            allPayouts = await findRecruiterPayouts();
+        } catch (e) {
+            console.error('Error fetching recruiter payouts:', e);
+        }
+
+        const windowStart = fromDate.format('YYYY-MM');
+        const windowEnd = toDate.format('YYYY-MM');
+        const periodPayouts = allPayouts.filter(p => {
+            const pMonth = `${p.year}-${String(p.month).padStart(2, '0')}`;
+            return pMonth >= windowStart && pMonth <= windowEnd;
+        });
+
         if (contactIds.length === 0) {
-            return json({ contacts: [] });
+            setHeaders({
+                "cache-control": "no-cache"
+            });
+            return json({ contacts: [], payouts: periodPayouts, allPayouts });
         }
 
         // 2. Fetch ALL deals for these contacts up to the evaluation end date
@@ -146,12 +165,49 @@ export const GET: RequestHandler = async ({ url, setHeaders }) => {
             });
 
         setHeaders({
-            "cache-control": "max-age=3600"
+            "cache-control": "no-cache"
         });
 
-        return json({ contacts: finalContacts });
+        return json({ contacts: finalContacts, payouts: periodPayouts, allPayouts });
     } catch (error) {
         console.error('Error fetching recruiter analytics:', error);
         return json({ error: 'Failed to fetch analytics' }, { status: 500 });
+    }
+};
+
+export const POST: RequestHandler = async ({ request }) => {
+    try {
+        const body = await request.json();
+        const { recruiterId, recruiterName, payoutValue, month, year, includedContractors, note } = body;
+
+        if (!recruiterId || payoutValue === undefined || payoutValue === null) {
+            return json({ error: 'Recruiter ID and payout value are required' }, { status: 400 });
+        }
+
+        const payoutData: RecruiterPayout = {
+            recruiterId: String(recruiterId),
+            recruiterName: recruiterName ? String(recruiterName) : '',
+            payoutValue: Number(payoutValue),
+            month: String(month || dayjs().format('MM')).padStart(2, '0'),
+            year: String(year || dayjs().format('YYYY')),
+            includedContractors: Array.isArray(includedContractors)
+                ? includedContractors.map((c: any) => ({
+                    id: c.id,
+                    name: String(c.name || ''),
+                    days: Number(c.days || 0)
+                }))
+                : [],
+            createdAt: new Date().toISOString()
+        };
+
+        if (note) {
+            payoutData.note = String(note);
+        }
+
+        const id = await addRecruiterPayout(payoutData);
+        return json({ success: true, id, payout: { id, ...payoutData } });
+    } catch (error) {
+        console.error('Error saving recruiter payout:', error);
+        return json({ error: 'Failed to save recruiter payout' }, { status: 500 });
     }
 };

@@ -1,6 +1,6 @@
 import { setItem, getItemById, getItems, addItem, db, getRef } from "./firebase";
 
-const collectionName: string = 'jobber/offers/list';
+const collectionName: string = 'jobOffers';
 
 export const addJobberOffersList = async (data: SavedOffer) => {
     return addItem(data, collectionName);
@@ -18,7 +18,7 @@ export const findJobberOffersList = async <T = SavedOffer>(query: App.FirebaseIt
     return getItems(collectionName, query, select);
 }
 
-const archivedCollectionName: string = 'jobber/offers/archived';
+const archivedCollectionName: string = 'jobArchived';
 
 export const addArchivedOffersList = async (data: ArchiveEntry) => {
     return addItem(data, archivedCollectionName);
@@ -75,7 +75,7 @@ export const unarchiveJobberOfferList = async (offer: ArchiveEntry) => {
     return true;
 };
 
-const deletedCollectionName: string = 'jobber/offers/deleted';
+const deletedCollectionName: string = 'jobDeleted';
 
 export const findDeletedOffersList = async <T = SavedOffer>(query: App.FirebaseItemsQuery = false, select: App.FirebaseItemsFields = false): Promise<T[]> => {
     return getItems(deletedCollectionName, query, select);
