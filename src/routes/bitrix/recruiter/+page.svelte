@@ -6,6 +6,8 @@
 	import TooltipText from '$lib/misc/TooltipText.svelte';
 	import UIcon from '$lib/misc/UIcon.svelte';
 	import ClosableModal from '$lib/misc/ClosableModal.svelte';
+	import ContactAvatar from '$lib/components/ContactAvatar.svelte';
+	import EisgTopbar from '$lib/components/EisgTopbar.svelte';
 	import Flatpickr from 'svelte-flatpickr';
 	import 'flatpickr/dist/flatpickr.css';
 	import { addToast } from '$lib/toast';
@@ -72,11 +74,7 @@
 
 	const selectedMonthObj = $derived(dayjs(`${selectedYear}-${selectedMonth}-01`));
 	// Billing period shown is +2 months forward from the underlying data start month
-	const selectedMonthLabel = $derived(
-		customFrom
-			? `${dayjs(`${customFrom}-01`).add(2, 'month').format('MMM YYYY')} - ${dayjs(`${customTo}-01`).add(2, 'month').format('MMM YYYY')}`
-			: selectedMonthObj.add(2, 'month').format('MMMM YYYY')
-	);
+	const selectedMonthLabel = $derived(customFrom ? `${dayjs(`${customFrom}-01`).add(2, 'month').format('MMM YYYY')} - ${dayjs(`${customTo}-01`).add(2, 'month').format('MMM YYYY')}` : selectedMonthObj.add(2, 'month').format('MMMM YYYY'));
 	const evalPeriodStartLabel = $derived(customFrom ? dayjs(`${customFrom}-01`).startOf('month').format('MMM 01, YYYY') : selectedMonthObj.startOf('month').format('MMM 01, YYYY'));
 	const evalPeriodEndLabel = $derived(customTo ? dayjs(`${customTo}-01`).endOf('month').format('MMM DD, YYYY') : selectedMonthObj.endOf('month').format('MMM DD, YYYY'));
 
@@ -337,33 +335,6 @@
 		}
 	}
 
-	// Avatar styling helper
-	const AVATAR_PALETTES = [
-		{ bg: '#dbeafe', text: '#1d4ed8' }, // Blue
-		{ bg: '#f3e8ff', text: '#7e22ce' }, // Purple
-		{ bg: '#d1fae5', text: '#047857' }, // Emerald
-		{ bg: '#fef3c7', text: '#b45309' }, // Amber
-		{ bg: '#fee2e2', text: '#b91c1c' }, // Rose
-		{ bg: '#e0e7ff', text: '#4338ca' }, // Indigo
-		{ bg: '#ccfbf1', text: '#0f766e' } // Teal
-	];
-
-	function getInitials(name: string): string {
-		if (!name) return '??';
-		const parts = name.trim().split(/\s+/);
-		if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-		return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-	}
-
-	function getAvatarPalette(name: string) {
-		let hash = 0;
-		for (let i = 0; i < name.length; i++) {
-			hash = name.charCodeAt(i) + ((hash << 5) - hash);
-		}
-		const index = Math.abs(hash) % AVATAR_PALETTES.length;
-		return AVATAR_PALETTES[index];
-	}
-
 	let sortColumn = $state<string>('id');
 	let sortDirection = $state<'asc' | 'desc'>('asc');
 
@@ -446,38 +417,19 @@
 
 <div class="dashboard-wrapper">
 	<!-- TOP APP BRANDING & STATUS HEADER -->
-	<header class="app-topbar px-4 py-2 bg-white border-bottom shadow-xs">
-		<div class="container-fluid px-0 d-flex flex-wrap align-items-center justify-content-between gap-3">
-			<!-- Brand -->
-			<div class="d-flex align-items-center gap-3">
-				<div class="brand-icon-box shadow-xs">
-					<UIcon name="bolt" size="5" class="text-white" />
-				</div>
-				<div>
-					<div class="d-flex align-items-center gap-2">
-						<span class="fw-bolder fs-5 tracking-tight text-slate-900">EISG</span>
-						<span class="badge rounded-pill bg-purple-subtle text-purple fw-semibold px-2 py-0.5 text-xs">BITRIX</span>
-					</div>
-					<div class="text-secondary small line-height-1">Provision & Recruiter Quota Analytics Engine</div>
-				</div>
-			</div>
-
-			<!-- Header Quick Controls & Status -->
-			<div class="d-flex align-items-center flex-wrap gap-3">
-				<div class="btn-group btn-group-sm shadow-xs rounded-pill p-1 bg-slate-100 border" role="group" aria-label="Period quick range">
-					<button type="button" class="btn btn-sm rounded-pill px-3 py-1 text-xs fw-semibold text-secondary hover-dark" onclick={setQ3}>Q3 {selectedYear || dayjs().format('YYYY')}</button>
-					<button type="button" class="btn btn-sm rounded-pill px-3 py-1 text-xs fw-semibold text-secondary hover-dark" onclick={setYTD}>YTD {selectedYear || dayjs().format('YYYY')}</button>
-					<button type="button" class="btn btn-sm rounded-pill px-3 py-1 text-xs fw-semibold {customFrom ? 'btn-primary' : 'text-secondary hover-dark'}" onclick={() => (isCustomRangeModalOpen = true)}>
-						{#if customFrom}
-							{dayjs(`${customFrom}-01`).format('MMM YY')} - {dayjs(`${customTo}-01`).format('MMM YY')}
-						{:else}
-							Custom Range
-						{/if}
-					</button>
-				</div>
-			</div>
+	<EisgTopbar badgeText="BITRIX" badgeColor="purple" subtitle="Provision & Recruiter Quota Analytics Engine">
+		<div class="btn-group btn-group-sm shadow-xs rounded-pill p-1 bg-slate-100 border" role="group" aria-label="Period quick range">
+			<button type="button" class="btn btn-sm rounded-pill px-3 py-1 text-xs fw-semibold text-secondary hover-dark" onclick={setQ3}>Q3 {selectedYear || dayjs().format('YYYY')}</button>
+			<button type="button" class="btn btn-sm rounded-pill px-3 py-1 text-xs fw-semibold text-secondary hover-dark" onclick={setYTD}>YTD {selectedYear || dayjs().format('YYYY')}</button>
+			<button type="button" class="btn btn-sm rounded-pill px-3 py-1 text-xs fw-semibold {customFrom ? 'btn-primary' : 'text-secondary hover-dark'}" onclick={() => (isCustomRangeModalOpen = true)}>
+				{#if customFrom}
+					{dayjs(`${customFrom}-01`).format('MMM YY')} - {dayjs(`${customTo}-01`).format('MMM YY')}
+				{:else}
+					Custom Range
+				{/if}
+			</button>
 		</div>
-	</header>
+	</EisgTopbar>
 
 	<ClosableModal bind:isOpen={isCustomRangeModalOpen} headerText="Select Date Range" size="md">
 		<div class="d-flex flex-column align-items-center justify-content-center p-3">
@@ -1060,7 +1012,6 @@
 													</thead>
 													<tbody>
 														{#each filteredContacts as contact (contact.id)}
-															{@const palette = getAvatarPalette(contact.name || '')}
 															{@const isContactExpanded = !!expandedContacts[contact.id]}
 															{@const deficitDays = 30 - (contact.totalWorkedDays || 0)}
 															<tr class={!contact.isSuccessful ? 'row-warning-light' : 'row-normal'}>
@@ -1074,9 +1025,7 @@
 																<!-- Contact Name & Avatar -->
 																<td>
 																	<div class="d-flex align-items-center gap-2.5 py-1">
-																		<div class="contact-avatar-circle shadow-xs me-2" style="background-color: {palette.bg}; color: {palette.text};">
-																			{getInitials(contact.name || '')}
-																		</div>
+																		<ContactAvatar name={contact.name || ''} />
 																		<div>
 																			<a href="{CONTACT_BASE_URL}{contact.id}/" target="_blank" class="fw-bold text-slate-900 text-decoration-none hover-primary text-sm">
 																				{contact.name || 'Unnamed Candidate'}
@@ -1279,350 +1228,3 @@
 		</div>
 	</footer>
 </div>
-
-<style>
-	/* Design tokens & slate palette */
-	:global(:root) {
-		--tp-slate-50: #f8fafc;
-		--tp-slate-100: #f1f5f9;
-		--tp-slate-200: #e2e8f0;
-		--tp-slate-300: #cbd5e1;
-		--tp-slate-600: #475569;
-		--tp-slate-700: #334155;
-		--tp-slate-800: #1e293b;
-		--tp-slate-900: #0f172a;
-	}
-
-	.dashboard-wrapper {
-		background-color: #f6f8fc;
-		min-height: 100vh;
-		font-family:
-			'Montserrat',
-			system-ui,
-			-apple-system,
-			sans-serif;
-	}
-
-	.max-w-1600 {
-		max-width: 1600px;
-		margin-left: auto;
-		margin-right: auto;
-	}
-
-	/* Top branding */
-	.app-topbar {
-		position: sticky;
-		top: 0;
-		z-index: 1020;
-	}
-
-	.brand-icon-box {
-		width: 38px;
-		height: 38px;
-		border-radius: 10px;
-		background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	/* Stat Cards */
-	.stat-card {
-		background: #ffffff;
-		border-radius: 14px;
-		transition:
-			transform 0.15s ease,
-			box-shadow 0.15s ease;
-	}
-
-	.stat-card:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-	}
-
-	.stat-label {
-		font-size: 0.72rem;
-		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--tp-slate-600);
-	}
-
-	.stat-value {
-		font-size: 1.85rem;
-		font-weight: 800;
-		color: var(--tp-slate-900);
-		line-height: 1.1;
-	}
-
-	.stat-icon-wrapper {
-		width: 34px;
-		height: 34px;
-		border-radius: 8px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.stat-footer {
-		font-size: 0.75rem;
-	}
-
-	.stat-progress {
-		height: 6px;
-		background-color: #e2e8f0;
-	}
-
-	/* Periods Sidebar */
-	.period-sidebar-card {
-		background: #ffffff;
-	}
-
-	.period-search-icon {
-		left: 10px;
-		top: 50%;
-		transform: translateY(-50%);
-		font-size: 0.7rem;
-	}
-
-	.period-scroll-container {
-		max-height: calc(100vh - 280px);
-		overflow-y: auto;
-	}
-
-	.period-item-btn {
-		transition: all 0.15s ease;
-	}
-
-	.period-item-btn:hover:not(.active-period) {
-		background-color: var(--tp-slate-100);
-	}
-
-	.active-period {
-		background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-		box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
-	}
-
-	.period-dot {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		display: inline-block;
-	}
-
-	/* Recruiter Group Cards */
-	.recruiter-group-card {
-		background: #ffffff;
-		border-radius: 14px;
-		transition: box-shadow 0.15s ease;
-	}
-
-	.recruiter-group-card:hover {
-		box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
-	}
-
-	.recruiter-table-search {
-		width: 260px;
-	}
-
-	.table-search-icon {
-		left: 10px;
-		top: 50%;
-		transform: translateY(-50%);
-		font-size: 0.75rem;
-	}
-
-	/* Contacts Table */
-	.custom-contacts-table thead th {
-		font-size: 0.7rem;
-		font-weight: 700;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		color: var(--tp-slate-600);
-		background-color: #f8fafc;
-		border-bottom: 1px solid var(--tp-slate-200);
-		padding-top: 12px;
-		padding-bottom: 12px;
-	}
-
-	.custom-contacts-table tbody tr {
-		transition: background-color 0.12s ease;
-	}
-
-	.custom-contacts-table tbody tr.row-normal:hover {
-		background-color: #f8fafc;
-	}
-
-	.custom-contacts-table tbody tr.row-warning-light {
-		background-color: #fffdf5;
-	}
-
-	.custom-contacts-table tbody tr.row-warning-light:hover {
-		background-color: #fffbeb;
-	}
-
-	.contact-avatar-circle {
-		width: 36px;
-		height: 36px;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-weight: 700;
-		font-size: 0.78rem;
-		flex-shrink: 0;
-	}
-
-	.active-deal-btn {
-		background-color: var(--tp-slate-800) !important;
-		color: #ffffff !important;
-		border-color: var(--tp-slate-800) !important;
-	}
-
-	/* Nested Deals Panel */
-	.deals-detail-panel {
-		border-radius: 10px;
-		border: 1px solid #c7d2fe;
-	}
-
-	.nested-deals-table thead th {
-		font-size: 0.68rem;
-		font-weight: 700;
-		letter-spacing: 0.04em;
-		background-color: #f1f5f9;
-	}
-
-	/* Pulse dot */
-	.status-pulse-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		display: inline-block;
-		box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-	}
-
-	.status-dot-sm {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		display: inline-block;
-	}
-
-	/* Utility typography and colors */
-	.text-2xs {
-		font-size: 0.68rem;
-	}
-
-	.line-height-1 {
-		line-height: 1.1;
-	}
-
-	.line-height-14 {
-		line-height: 1.4;
-	}
-
-	.tracking-tight {
-		letter-spacing: -0.02em;
-	}
-
-	.tracking-wider {
-		letter-spacing: 0.05em;
-	}
-
-	.bg-purple-subtle {
-		background-color: #f3e8ff;
-	}
-
-	.text-purple {
-		color: #7e22ce;
-	}
-
-	.bg-blue-subtle {
-		background-color: #eff6ff;
-	}
-
-	.bg-rose-subtle {
-		background-color: #fff1f2;
-	}
-
-	.bg-slate-50 {
-		background-color: #f8fafc;
-	}
-
-	.bg-slate-100 {
-		background-color: #f1f5f9;
-	}
-
-	.text-slate-600 {
-		color: #475569;
-	}
-
-	.text-slate-700 {
-		color: #334155;
-	}
-
-	.text-slate-800 {
-		color: #1e293b;
-	}
-
-	.text-slate-900 {
-		color: #0f172a;
-	}
-
-	.border-slate-200 {
-		border-color: #e2e8f0 !important;
-	}
-
-	.border-indigo-subtle {
-		border-color: #e0e7ff !important;
-	}
-
-	.shadow-xs {
-		box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-	}
-
-	.hover-primary:hover {
-		color: #2563eb !important;
-	}
-
-	.hover-dark:hover {
-		color: #0f172a !important;
-	}
-
-	.user-select-none {
-		user-select: none;
-	}
-
-	.hover-shadow:hover {
-		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-	}
-
-	.hover-underline:hover {
-		text-decoration: underline !important;
-	}
-
-	.cursor-pointer {
-		cursor: pointer;
-	}
-
-	.max-h-200 {
-		max-height: 200px;
-		overflow-y: auto;
-	}
-
-	.bg-emerald-50 {
-		background-color: #ecfdf5;
-	}
-
-	.border-emerald-200 {
-		border-color: #a7f3d0 !important;
-	}
-
-	.text-emerald-900 {
-		color: #064e3b;
-	}
-	button.btn.btn-outline-success.py-2 {
-		padding-top: calc(0.5rem - 1px) !important;
-		padding-bottom: calc(0.5rem - 1px) !important;
-	}
-</style>

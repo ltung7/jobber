@@ -162,7 +162,7 @@
 		</div>
 		<div class="topbar-divider"></div>
 		<div class="topbar-sub d-flex justify-content-between align-items-center w-100">
-			<h4 class="mb-0 fw-bolder text-dark">Generator Ofert Pracy</h4>
+			<h4 class="mb-0 fw-bolder text-dark">Job Offer Generator</h4>
 			<div class="small text-secondary">({env.PUBLIC_APP_VER})</div>
 		</div>
 	</header>

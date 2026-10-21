@@ -30,7 +30,7 @@
         onClick,
         footer
     }: Props = $props();
-    if (buttonCaption === true) buttonCaption = 'Zapisz';
+    if (buttonCaption === true) buttonCaption = 'Save';
 </script>
 
 <Modal bind:isOpen={isOpen} {toggle} {size} {centered} {id} {fullscreen}>
@@ -47,6 +47,6 @@
         {#if buttonCaption} 
             <button class="btn btn-primary mb-0" onclick={onClick}>{buttonCaption}</button>
         {/if}
-        <button class="btn btn-secondary mb-0" onclick={toggle}>Zamknij</button>
+        <button class="btn btn-secondary mb-0" onclick={toggle}>Close</button>
 	</ModalFooter>
 </Modal>
