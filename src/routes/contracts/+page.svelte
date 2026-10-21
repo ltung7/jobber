@@ -177,7 +177,6 @@
 	const emailDeliveryCount = $derived(envelopes.filter((e) => e.receiver?.deliveryMethod !== 'SMS').length);
 	const successRate = $derived(totalEnvelopesCount > 0 ? ((signedCount / totalEnvelopesCount) * 100).toFixed(1) : '0.0');
 	const provisionForecastPLN = $derived((signedCount * 150).toLocaleString('de-DE'));
-	const bitrixLinkedCount = $derived(envelopes.filter((e) => Boolean(e.bitrixContactId)).length);
 
 	function toggleExpandEnvelope(id: string) {
 		expandedEnvelopes[id] = !expandedEnvelopes[id];
@@ -191,7 +190,6 @@
 	function getContracteeEnvelopes(c: Contractee): SentEnvelope[] {
 		return envelopes.filter((e) => {
 			if (c.id && e.contracteeId === c.id) return true;
-			if (c.bitrixContactId && e.bitrixContactId && String(e.bitrixContactId) === String(c.bitrixContactId)) return true;
 			if (e.receiver?.name && c.name && e.receiver.name.trim().toLowerCase() === c.name.trim().toLowerCase()) return true;
 			return false;
 		});
@@ -214,12 +212,9 @@
 				const matchName = (env.receiver?.name || '').toLowerCase().includes(q);
 				const matchPhone = (env.receiver?.phone || '').toLowerCase().includes(q);
 				const matchEmail = (env.receiver?.email || '').toLowerCase().includes(q);
-				const matchBitrix = String(env.bitrixContactId || '')
-					.toLowerCase()
-					.includes(q);
 				const matchTitle = (env.contractTitle || '').toLowerCase().includes(q);
 				const matchRecruiter = (env.recruiterName || '').toLowerCase().includes(q);
-				return matchName || matchPhone || matchEmail || matchBitrix || matchTitle || matchRecruiter;
+				return matchName || matchPhone || matchEmail || matchTitle || matchRecruiter;
 			}
 			return true;
 		});
@@ -275,7 +270,7 @@
 			}
 			if (searchFilter.trim()) {
 				const q = searchFilter.toLowerCase();
-				return (c.name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q) || (c.recruiterName || '').toLowerCase().includes(q) || String(c.bitrixContactId || '').includes(q);
+				return (c.name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q) || (c.recruiterName || '').toLowerCase().includes(q);
 			}
 			return true;
 		})
@@ -620,7 +615,6 @@
 								</div>
 								<div class="stat-footer mt-1 text-secondary d-flex align-items-center gap-1">
 									<UIcon name="check-circle" size="6" class="text-success" />
-									<span><strong class="text-slate-800">{bitrixLinkedCount}</strong> Bitrix contacts synchronized</span>
 								</div>
 							</div>
 						</div>
@@ -885,11 +879,6 @@
 															<div>
 																<div class="d-flex align-items-center gap-1.5">
 																	<span class="fw-bold text-slate-900 text-sm">{env.receiver?.name || 'Unnamed Recommender'}</span>
-																	{#if env.bitrixContactId}
-																		<a href="{CONTACT_BASE_URL}{env.bitrixContactId}/" target="_blank" rel="noopener noreferrer" class="badge bg-primary-subtle text-primary border border-primary-subtle text-2xs text-decoration-none" title="Open in Bitrix24">
-																			Bitrix #{env.bitrixContactId}
-																		</a>
-																	{/if}
 																</div>
 																<div class="text-secondary text-2xs mt-0.5 d-flex align-items-center gap-2">
 																	{#if env.receiver?.phone}
@@ -1020,14 +1009,6 @@
 																					<div><strong>Phone:</strong> {env.receiver?.phone || 'Not provided'}</div>
 																					<div><strong>Email:</strong> {env.receiver?.email || 'Not provided'}</div>
 																					<div><strong>Method:</strong> {env.receiver?.deliveryMethod === 'SMS' ? 'SMS Mobile Signing' : 'Email Signing'}</div>
-																					{#if env.bitrixContactId}
-																						<div class="mt-1">
-																							<strong>Bitrix Contact:</strong>
-																							<a href="{CONTACT_BASE_URL}{env.bitrixContactId}/" target="_blank" class="fw-bold text-primary text-decoration-none ms-1">
-																								Open Profile #{env.bitrixContactId} &rarr;
-																							</a>
-																						</div>
-																					{/if}
 																				</div>
 																			</div>
 																		</div>
@@ -1270,11 +1251,6 @@
 															<ContactAvatar name={c.name} size={36} />
 															<div>
 																<div class="fw-bold text-slate-900 text-sm">{c.name}</div>
-																{#if c.bitrixContactId}
-																	<a href="{CONTACT_BASE_URL}{c.bitrixContactId}/" target="_blank" rel="noopener noreferrer" class="badge bg-primary-subtle text-primary border border-primary-subtle text-2xs text-decoration-none mt-0.5">
-																		Bitrix #{c.bitrixContactId}
-																	</a>
-																{/if}
 															</div>
 														</div>
 													</td>

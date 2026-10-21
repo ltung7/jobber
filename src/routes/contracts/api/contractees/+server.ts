@@ -37,8 +37,7 @@ export const POST: RequestHandler = async ({ request }) => {
             bankAccount,
             recruiterId,
             recruiterName,
-            newRecruiterName,
-            bitrixContactId
+            newRecruiterName
         } = body;
 
         if (!name?.trim()) {
@@ -61,17 +60,6 @@ export const POST: RequestHandler = async ({ request }) => {
             }
         }
 
-        // If a Bitrix Contact ID is linked and we have a valid recruiterId, update the contact in Bitrix
-        if (bitrixContactId && recruiterId && recruiterId !== 'none') {
-            try {
-                await bitrixService.updateContact(Number(bitrixContactId), {
-                    UF_CRM_1790672831151: recruiterId
-                });
-            } catch (err) {
-                console.warn(`Could not update recruiter on Bitrix contact #${bitrixContactId}:`, err);
-            }
-        }
-
         const data = {
             name: name.trim(),
             phone: phone?.trim() || '',
@@ -80,8 +68,7 @@ export const POST: RequestHandler = async ({ request }) => {
             paymentMethod: paymentMethod || 'bank',
             bankAccount: bankAccount?.trim() || '',
             recruiterId: recruiterId ? String(recruiterId) : '',
-            recruiterName: recruiterName?.trim() || '',
-            bitrixContactId: bitrixContactId ? String(bitrixContactId) : undefined
+            recruiterName: recruiterName?.trim() || ''
         };
 
         if (id) {

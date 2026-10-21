@@ -22,7 +22,6 @@ export interface SentEnvelope {
     receiver: EnvelopeParty;
     paymentMethod: 'bank' | 'cash';
     bankAccount?: string;
-    bitrixContactId?: string | number;
     recruiterId?: string | number;
     recruiterName?: string;
     status: string;

@@ -4,6 +4,7 @@ import { logger, thrower } from "$lib/utils/logger";
 import { getEnvelopeByDocuSignId, setEnvelope, type SentEnvelope } from "$lib/server/db/firebase/recruiterEnvelope.fdb";
 import bitrixService from "$lib/bitrix/bitrix.service";
 import { getEnvelopeStatus } from "./docusign.service";
+import slackMessage from "$lib/server/services/slack.service";
 
 const processContractEnvelope = async (payload: DocusignWebhookEvent<[EventCustomFields]>) => {
     const envelopeId = payload.data?.envelopeId;
@@ -37,12 +38,6 @@ const processContractEnvelope = async (payload: DocusignWebhookEvent<[EventCusto
     if (envelope.id) {
         await setEnvelope(envelope.id, updateData);
     }
-
-    // Bitrix Synchronization: When an envelope reaches "Signed" ("podpisana") status
-    if (isSigned && envelope.bitrixContactId) {
-        const comment = `[Umowa DocuSign: ${envelope.contractTitle || 'Umowa'}] Status: PODPISANA. Recommender Payout: 150 PLN po 30 dniach od zatrudnienia. Envelope ID: ${envelopeId}`;
-        await bitrixService.addContactComment(envelope.bitrixContactId, comment);
-    }
 };
 
 export const syncEnvelopeStatus = async (envelopeId: string) => {
@@ -69,16 +64,20 @@ export const syncEnvelopeStatus = async (envelopeId: string) => {
         await setEnvelope(envelope.id, updateData);
     }
 
-    if (isSigned && envelope.bitrixContactId && envelope.status !== 'signed' && envelope.status !== 'completed') {
-        const comment = `[Umowa DocuSign: ${envelope.contractTitle || 'Umowa'}] Status: PODPISANA. Recommender Payout: 150 PLN po 30 dniach od zatrudnienia. Envelope ID: ${envelopeId}`;
-        await bitrixService.addContactComment(envelope.bitrixContactId, comment);
-    }
-
     return { ...envelope, ...updateData };
 };
 
 export const processDocusignWebhook = async (payload: DocusignWebhookEvent<[EventCustomFields]>) => {
     logger.log('DocusignWebhook ' + payload.event);
+
+    try {
+        const envelopeId = payload.data?.envelopeId || 'unknown';
+        const status = payload.data?.envelopeSummary?.status || payload.event;
+        const recipientName = payload.data?.envelopeSummary?.emailSubject || '';
+        await slackMessage(`📨 *DocuSign Webhook Hit*: \`${payload.event}\` | Status: *${status}* | Envelope: \`${envelopeId}\` ${recipientName ? `(${recipientName})` : ''}`);
+    } catch (e) {
+        console.error('Failed to send Slack webhook hit notification:', e);
+    }
 
     try {
         await processContractEnvelope(payload);

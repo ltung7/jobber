@@ -296,7 +296,7 @@
 
 				<!-- Signature Section with Anchors \s1\ and \s2\ -->
 				<!-- Generous vertical spacing for electronic signature stamp -->
-				<div style="margin-top: 90px; margin-bottom: 30px; display: flex; justify-content: space-between; page-break-inside: avoid;">
+				<div style="margin-top: 130px; margin-bottom: 30px; display: flex; justify-content: space-between; page-break-inside: avoid;">
 					<!-- Left Signer (Contractor) -->
 					<div style="width: 44%; text-align: center; border-top: 1.5px solid #475569; padding-top: 16px; min-height: 100px;">
 						<div style="font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 4px;">

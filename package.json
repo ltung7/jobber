@@ -1,7 +1,7 @@
 {
 	"name": "juliette",
 	"private": true,
-	"version": "0.0.25",
+	"version": "0.0.26",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
@@ -45,6 +45,7 @@
 		"globals": "^17.6.0",
 		"mysql-bricks": "^2.0.0",
 		"nodemailer": "^9.0.1",
+		"pdf-lib": "^1.17.1",
 		"prettier": "^3.8.4",
 		"prettier-plugin-svelte": "^4.1.1",
 		"sql-bricks": "^3.0.1",

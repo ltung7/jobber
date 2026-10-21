@@ -15,6 +15,7 @@ import {
 } from '$lib/server/db/firebase/recruiterContractee.fdb';
 import { sendEnvelope } from '$lib/server/services/docusign/docusign.service';
 import bitrixService from '$lib/bitrix/bitrix.service';
+import { thrower } from '$lib/utils/logger';
 
 export const GET = async ({ url }: RequestEvent) => {
     try {
@@ -52,10 +53,12 @@ export const POST = async ({ request }: RequestEvent) => {
         sender = { name: 'EISG Sp. z o.o.', email: 'biuro@eisg.pl' },
         paymentMethod = 'bank',
         bankAccount = '',
-        bitrixContactId: incomingContactId,
         recruiterId = 'none',
         recruiterName = '',
-        newRecruiterName = ''
+        newRecruiterName = '',
+        totalPages = 1,
+        leftCoords,
+        rightCoords
     } = payload;
 
     if (!pdfBase64) {
@@ -68,8 +71,6 @@ export const POST = async ({ request }: RequestEvent) => {
         throw error(400, 'Receiver email or phone number is required');
     }
 
-    let finalContactId = incomingContactId;
-
     // Recruiter enum item handling in Bitrix
     if (recruiterId === 'create_new') {
         const labelToAdd = (newRecruiterName || receiver.name).trim();
@@ -79,17 +80,6 @@ export const POST = async ({ request }: RequestEvent) => {
             recruiterName = createdEnum.value;
         } catch (enumErr: any) {
             console.error('Failed to create recruiter enum option in Bitrix:', enumErr);
-        }
-    }
-
-    // If an existing Bitrix Contact ID is linked, update its recruiter field
-    if (finalContactId && recruiterId && recruiterId !== 'none' && recruiterId !== 'create_new') {
-        try {
-            await bitrixService.updateContact(Number(finalContactId), {
-                UF_CRM_1790672831151: recruiterId
-            });
-        } catch (btxErr) {
-            console.error('Error updating Bitrix Contact recruiter field:', btxErr);
         }
     }
 
@@ -105,8 +95,7 @@ export const POST = async ({ request }: RequestEvent) => {
                 paymentMethod,
                 bankAccount: paymentMethod === 'bank' ? bankAccount : '',
                 recruiterId: recruiterId && recruiterId !== 'none' ? String(recruiterId) : '',
-                recruiterName: recruiterName || '',
-                bitrixContactId: finalContactId || undefined
+                recruiterName: recruiterName || ''
             });
         } else {
             // Check if contractee already exists by name/phone/email
@@ -126,8 +115,7 @@ export const POST = async ({ request }: RequestEvent) => {
                     paymentMethod,
                     bankAccount: paymentMethod === 'bank' ? bankAccount : match.bankAccount,
                     recruiterId: recruiterId && recruiterId !== 'none' ? String(recruiterId) : match.recruiterId,
-                    recruiterName: recruiterName || match.recruiterName,
-                    bitrixContactId: finalContactId || match.bitrixContactId
+                    recruiterName: recruiterName || match.recruiterName
                 });
             } else {
                 const newCId = await addContractee({
@@ -138,8 +126,7 @@ export const POST = async ({ request }: RequestEvent) => {
                     paymentMethod,
                     bankAccount: paymentMethod === 'bank' ? bankAccount.trim() : '',
                     recruiterId: recruiterId && recruiterId !== 'none' ? String(recruiterId) : '',
-                    recruiterName: recruiterName?.trim() || '',
-                    bitrixContactId: finalContactId || undefined
+                    recruiterName: recruiterName?.trim() || ''
                 });
                 resolvedContracteeId = typeof newCId === 'string' ? newCId : undefined;
             }
@@ -149,7 +136,7 @@ export const POST = async ({ request }: RequestEvent) => {
     }
 
     // Prepare PDF buffer
-    const base64Clean = pdfBase64.replace(/^data:application\/pdf;base64,/, '');
+    const base64Clean = pdfBase64.includes(',') ? pdfBase64.split(',')[1] : pdfBase64;
     const buffer = Buffer.from(base64Clean, 'base64');
 
     // Send envelope via DocuSign
@@ -159,7 +146,10 @@ export const POST = async ({ request }: RequestEvent) => {
         envelopeResult = await sendEnvelope({
             buffer,
             name: `${contractTitle || 'Agreement'} - ${receiver.name}`,
-            useAnchor: true,
+            useAnchor: false,
+            page: totalPages || 1,
+            leftCoords,
+            rightCoords,
             leftSigner: sender?.name ? {
                 name: sender.name,
                 email: sender.email || 'biuro@eisg.pl',
@@ -173,7 +163,6 @@ export const POST = async ({ request }: RequestEvent) => {
             },
             metadata: {
                 contractId: contractId || '',
-                bitrixContactId: String(finalContactId || ''),
                 recruiterId: String(recruiterId || ''),
                 contracteeId: String(resolvedContracteeId || ''),
                 contractorId: String(contractorId || ''),
@@ -181,8 +170,7 @@ export const POST = async ({ request }: RequestEvent) => {
             }
         });
     } catch (dsErr: any) {
-        console.error('DocuSign sending error:', dsErr);
-        throw error(500, dsErr?.message || 'Failed to dispatch envelope via DocuSign');
+        thrower.endpoint(dsErr, 500, true);
     }
 
     if (!envelopeResult?.envelopeId) {
@@ -190,13 +178,9 @@ export const POST = async ({ request }: RequestEvent) => {
     }
 
     // Save sent envelope to envelope.fdb.ts
-    const envelopeData: Omit<SentEnvelope, 'id'> = {
+    const envelopeData:  Omit<SentEnvelope, 'id'> = {
         envelopeId: envelopeResult.envelopeId,
-        contractId: contractId || undefined,
         contractTitle: contractTitle || 'Recommendation Agreement',
-        contractorId: contractorId || undefined,
-        contractorNip: contractorNip || undefined,
-        contracteeId: resolvedContracteeId || undefined,
         language,
         sender,
         receiver: {
@@ -204,14 +188,18 @@ export const POST = async ({ request }: RequestEvent) => {
             deliveryMethod: receiver.deliveryMethod || (!receiver.email ? 'SMS' : 'email')
         },
         paymentMethod,
-        bankAccount: paymentMethod === 'bank' ? bankAccount : undefined,
-        bitrixContactId: finalContactId || undefined,
-        recruiterId: recruiterId && recruiterId !== 'none' ? String(recruiterId) : undefined,
-        recruiterName: recruiterName || undefined,
         status: envelopeResult.status || 'sent',
         plainText,
         createdAt: new Date().toISOString()
     };
+
+    if (contractId) envelopeData.contractId = contractId;
+    if (contractorId) envelopeData.contractorId = contractorId;
+    if (contractorNip) envelopeData.contractorNip = contractorNip;
+    if (resolvedContracteeId) envelopeData.contracteeId = resolvedContracteeId;
+    if (paymentMethod === 'bank' && bankAccount) envelopeData.bankAccount = bankAccount;
+    if (recruiterId && recruiterId !== 'none') envelopeData.recruiterId = String(recruiterId);
+    if (recruiterName) envelopeData.recruiterName = recruiterName;
 
     const docId = await addEnvelope(envelopeData);
 
@@ -219,7 +207,6 @@ export const POST = async ({ request }: RequestEvent) => {
         success: true,
         id: docId,
         envelopeId: envelopeResult.envelopeId,
-        bitrixContactId: finalContactId,
         recruiterId,
         recruiterName,
         contracteeId: resolvedContracteeId

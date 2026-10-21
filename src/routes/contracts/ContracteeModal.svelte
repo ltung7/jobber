@@ -26,7 +26,6 @@
 	let bankAccount = $state('');
 	let selectedRecruiterId = $state<string>('none');
 	let newRecruiterName = $state('');
-	let bitrixContactId = $state<string>('');
 
 	let saving = $state(false);
 
@@ -48,7 +47,6 @@
 				bankAccount = contractee.bankAccount || '';
 				selectedRecruiterId = contractee.recruiterId ? String(contractee.recruiterId) : 'none';
 				newRecruiterName = '';
-				bitrixContactId = contractee.bitrixContactId ? String(contractee.bitrixContactId) : '';
 			} else {
 				id = undefined;
 				name = '';
@@ -59,7 +57,6 @@
 				bankAccount = '';
 				selectedRecruiterId = 'none';
 				newRecruiterName = '';
-				bitrixContactId = '';
 			}
 		}
 	});
@@ -103,7 +100,6 @@
 					recruiterId: selectedRecruiterId !== 'none' ? selectedRecruiterId : '',
 					recruiterName: recruiterOptions[selectedRecruiterId] || (selectedRecruiterId === 'create_new' ? (newRecruiterName || name) : ''),
 					newRecruiterName: newRecruiterName.trim() || name.trim(),
-					bitrixContactId: bitrixContactId || undefined
 				})
 			});
 

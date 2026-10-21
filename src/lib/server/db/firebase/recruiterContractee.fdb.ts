@@ -12,7 +12,6 @@ export interface Contractee {
     bankAccount?: string;
     recruiterId: string; // Bitrix UF_CRM_1790672831151 enumeration item ID
     recruiterName?: string;
-    bitrixContactId?: string | number;
     createdAt?: string;
     updatedAt?: string;
 }

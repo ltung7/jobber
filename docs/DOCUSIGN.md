@@ -23,7 +23,7 @@
 - [x] **Modal Fields (Party 2 / Receiver - Recommender):**
   - **Full Name, Phone, and Email** (handles optional/absent email).
   - **Bank Account Number** OR **Cash ("Gotówka") selection option**.
-  - **Bitrix Contact Link:** Recommender's Bitrix Contact ID to track who they recommended with live search.
+  - **Bitrix Contact Link:** Removed to decouple contractees from CRM contact records in favor of Bitrix custom enumeration options.
 - [x] **SMS Delivery Support:**
   - DocuSign fully supports sending signing links via SMS using `deliveryMethod: "SMS"` or `additionalNotifications` (SMS delivery) with `phoneNumber` (`countryCode` and `number`). 
   - If an email is absent or optional, configures the recipient object with `deliveryMethod: "SMS"` and their phone number.
@@ -200,6 +200,39 @@
   - Load `contractors` and `contractees` in `+page.server.ts`.
   - Add sidebar navigation items and views in `+page.svelte` for **Contractees** and **Contractors (Companies)** alongside Templates and Envelopes.
   - In the **Contractees** and **Envelopes** views, display each person's assigned Recruiter (`recruiterName` / `#recruiterId`) and a summary of all envelopes linked to that `recruiterId` / `contracteeId` (showing counts and badges for **Signed** vs **Unsigned/Pending** contracts, plus ability to filter envelopes by Recruiter).
+
+---
+
+## 8. Phase 3: DocuSign Delivery, Robust PDF Parsing, Dynamic Coordinates & Testing Box Mode
+
+### Context & Implementation Summary
+1. **Concise Axios Error Handling:**
+   - Identified that `dsError` is an Axios error from the DocuSign client / SDK.
+   - Refactored `sendEnvelope` in `src/lib/server/services/docusign/docusign.service.ts` to call `thrower.axios(err, 'DocuSignCreateEnvelope')`.
+   - Updated `src/routes/contracts/api/envelopes/+server.ts` to leverage `thrower.endpoint(dsErr, 500, true)` so concise, readable error messages are returned and logged instead of dumping massive Axios request/response objects.
+
+2. **Base64 PDF Prefix Sanitization:**
+   - Fixed an issue where data URIs containing attributes such as `data:application/pdf;filename=generated.pdf;base64,...` caused regex replacements to fail and produced invalid tiny buffers (20 bytes).
+   - Resolved by splitting payloads cleanly on `,` (`pdfBase64.includes(',') ? pdfBase64.split(',')[1] : pdfBase64`) before instantiating `Buffer.from(..., 'base64')`.
+
+3. **Firestore `undefined` Value Prevention:**
+   - Stripped all explicit `undefined` fields from `envelopeData` (`contractId`, `contractorId`, `contractorNip`, `contracteeId`, `bankAccount`, `recruiterId`, `recruiterName`) to prevent Firebase Firestore rejection errors.
+
+4. **Sequential vs Concurrent Signer Delivery:**
+   - Clarified DocuSign routing order behavior (`routingOrder: '1'` vs `'2'`) where the second recipient only receives an email after the first completes signing.
+
+5. **Webhook Investigation & Configuration:**
+   - Analyzed why webhooks didn't trigger (missing envelope-level `eventNotification` and reliance on DocuSign Admin Connect settings with local endpoints).
+
+6. **Canvas PDF Anchor Search Limitations & Coordinate-Based Signing:**
+   - Diagnosed why DocuSign anchors (`\s1\`, `\s2\`) allowed recipients to "sign anywhere": because `html2canvas` rasterizes text into JPEG/PNG image slices, DocuSign's OCR/text-search engine could not find the text strings in the PDF stream.
+   - Switched from text-anchor tabs to coordinate-based tabs (`useAnchor: false`).
+   - Sourced dynamic page-relative coordinates (`leftCoords`, `rightCoords`) calculated from the actual rendered positions of signature DOM nodes (`#anchor-s1`, `#anchor-s2`) on the final page (`doc.getNumberOfPages()`), taking into account dynamic text flow and length differences across contracts.
+   - Adjusted coordinates to align signature boxes right on top of the signature lines.
+
+7. **Local Manual Testing Box Renderer (`SIGN_TEST`):**
+   - Implemented `SIGN_TEST = true || isDev` in `docusign.service.ts` with `pdf-lib`.
+   - When active, draws visual bounding boxes representing the exact coordinates for the left and right signer onto the target page of `/tmp/contract.pdf` for verification before live envelope dispatch.
 
 ---
 

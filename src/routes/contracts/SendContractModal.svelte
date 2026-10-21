@@ -63,7 +63,6 @@
 	let deliveryMethod = $state<'email' | 'SMS'>('email');
 	let paymentMethod = $state<'bank' | 'cash'>('bank');
 	let bankAccount = $state('');
-	let bitrixContactId = $state<string>('');
 	let selectedRecruiterId = $state<string>('none');
 	let newRecruiterName = $state('');
 
@@ -87,7 +86,6 @@
 			deliveryMethod = 'email';
 			paymentMethod = 'bank';
 			bankAccount = '';
-			bitrixContactId = '';
 			selectedRecruiterId = 'none';
 			newRecruiterName = '';
 
@@ -141,7 +139,6 @@
 			deliveryMethod = c.deliveryMethod || (c.email ? 'email' : 'SMS');
 			paymentMethod = c.paymentMethod || 'bank';
 			bankAccount = c.bankAccount || '';
-			bitrixContactId = c.bitrixContactId ? String(c.bitrixContactId) : '';
 			if (c.recruiterId) {
 				selectedRecruiterId = String(c.recruiterId);
 			}
@@ -214,14 +211,63 @@
 			}
 		}
 
-		return doc;
+		// Calculate exact DocuSign pixel coordinates from actual DOM element position on final page
+		// DocuSign standard A4 dimensions: 595.3 x 841.9 pt (pixels at 72 DPI)
+		const docuSignPageW = 595.3;
+		const docuSignPageH = 841.9;
+
+		// Signature section element
+		const sigSectionEl = pdfContainerEl.querySelector('#signature-section') as HTMLElement | null;
+		const a1El = pdfContainerEl.querySelector('#anchor-s1') as HTMLElement | null;
+		const a2El = pdfContainerEl.querySelector('#anchor-s2') as HTMLElement | null;
+
+		let leftCoords = { x: 80, y: 740 };
+		let rightCoords = { x: 340, y: 740 };
+
+		if (sigSectionEl && a1El && a2El) {
+			const containerRect = pdfContainerEl.getBoundingClientRect();
+			const secRect = sigSectionEl.getBoundingClientRect();
+			const a1Rect = a1El.getBoundingClientRect();
+			const a2Rect = a2El.getBoundingClientRect();
+
+			// Pixel ratio from HTML DOM width to DocuSign page width (595.3 pt)
+			const scale = docuSignPageW / containerRect.width;
+
+			// Total page height in DOM pixels corresponding to 841.9 pt DocuSign page
+			const domPageHeight = docuSignPageH / scale;
+
+			// Distance from top of contract document to the signature anchor lines
+			const top1Dom = a1Rect.top - containerRect.top;
+			const top2Dom = a2Rect.top - containerRect.top;
+
+			// Position on the current (final) page
+			const pageY1Dom = top1Dom % domPageHeight;
+			const pageY2Dom = top2Dom % domPageHeight;
+
+			// Left distance from container left edge
+			const left1Dom = a1Rect.left - containerRect.left;
+			const left2Dom = a2Rect.left - containerRect.left;
+
+			// Shift right (+50) to align with column center, and shift up to sit directly above the line.
+			leftCoords = {
+				x: Math.round(left1Dom * scale + 50),
+				y: Math.round(pageY1Dom * scale - 110)
+			};
+
+			rightCoords = {
+				x: Math.round(left2Dom * scale + 50),
+				y: Math.round(pageY2Dom * scale - 110)
+			};
+		}
+
+		return { doc, leftCoords, rightCoords };
 	}
 
 	async function handlePreviewPdf() {
 		isGeneratingPreview = true;
 		try {
 			addToast('Generating bilingual PDF preview...', 'info');
-			const doc = await generatePdfInstance();
+			const { doc } = await generatePdfInstance();
 			const pdfBlob = doc.output('blob');
 			const pdfUrl = URL.createObjectURL(pdfBlob);
 			window.open(pdfUrl, '_blank');
@@ -263,7 +309,7 @@
 		isSubmitting = true;
 		try {
 			addToast('Rendering bilingual contract document...', 'info');
-			const doc = await generatePdfInstance();
+			const { doc, leftCoords, rightCoords } = await generatePdfInstance();
 			const pdfBase64 = doc.output('datauristring');
 
 			addToast('Dispatching envelope via DocuSign API...', 'info');
@@ -297,10 +343,12 @@
 					},
 					paymentMethod,
 					bankAccount: paymentMethod === 'bank' ? bankAccount.trim() : undefined,
-					bitrixContactId: bitrixContactId.trim() || undefined,
 					recruiterId: selectedRecruiterId,
 					recruiterName,
-					newRecruiterName: newRecruiterName.trim() || receiverName.trim()
+					newRecruiterName: newRecruiterName.trim() || receiverName.trim(),
+					totalPages: doc.getNumberOfPages(),
+					leftCoords,
+					rightCoords
 				})
 			});
 
@@ -328,7 +376,6 @@
 				},
 				paymentMethod,
 				bankAccount: paymentMethod === 'bank' ? bankAccount.trim() : undefined,
-				bitrixContactId: data.bitrixContactId || bitrixContactId || undefined,
 				recruiterId: data.recruiterId || (selectedRecruiterId !== 'none' ? selectedRecruiterId : undefined),
 				recruiterName: data.recruiterName || recruiterName,
 				status: 'sent',
@@ -705,7 +752,7 @@
 
 		<!-- Signature Section with Anchors \s1\ and \s2\ -->
 		<!-- Generous vertical spacing for electronic signature stamp -->
-		<div style="margin-top: 90px; margin-bottom: 30px; display: flex; justify-content: space-between; page-break-inside: avoid;">
+		<div id="signature-section" style="margin-top: 130px; margin-bottom: 30px; display: flex; justify-content: space-between; page-break-inside: avoid;">
 			<!-- Left Signer (Contractor) -->
 			<div style="width: 44%; text-align: center; border-top: 1.5px solid #475569; padding-top: 16px; min-height: 100px;">
 				<div style="font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 4px;">
@@ -715,7 +762,7 @@
 					(podpis elektroniczny / electronic signature)
 				</div>
 				<!-- Signature Anchor 1: rendered in white text so it blends seamlessly into background -->
-				<div style="color: #ffffff; font-size: 8px; line-height: 8px; user-select: none; margin-top: 25px;">
+				<div id="anchor-s1" style="color: #ffffff; font-size: 8px; line-height: 8px; user-select: none; margin-top: 25px;">
 					\s1\
 				</div>
 			</div>
@@ -729,7 +776,7 @@
 					(podpis elektroniczny / electronic signature)
 				</div>
 				<!-- Signature Anchor 2: rendered in white text so it blends seamlessly into background -->
-				<div style="color: #ffffff; font-size: 8px; line-height: 8px; user-select: none; margin-top: 25px;">
+				<div id="anchor-s2" style="color: #ffffff; font-size: 8px; line-height: 8px; user-select: none; margin-top: 25px;">
 					\s2\
 				</div>
 			</div>
