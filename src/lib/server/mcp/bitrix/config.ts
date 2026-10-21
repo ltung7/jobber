@@ -55,5 +55,13 @@ export const getBitrixWebhookUrl = (): string => {
 };
 
 export const getMcpSecretToken = (): string => {
-    return env.MCP_SECRET_TOKEN || process.env.MCP_SECRET_TOKEN || 'a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0';
+    return env.MCP_SECRET_TOKEN || process.env.MCP_SECRET_TOKEN || 'nUYbkGydwzTBJoYSAQKbRblOA1L8gY3OEOgcCuTowTlvGeykoChjVFD7rDqKdDYa';
+};
+
+export const getMcpOAuthClientId = (): string => {
+    return env.MCP_OAUTH_CLIENT_ID || process.env.MCP_OAUTH_CLIENT_ID || 'eisg-bitrix-mcp-client';
+};
+
+export const getMcpOAuthClientSecret = (): string => {
+    return env.MCP_OAUTH_CLIENT_SECRET || process.env.MCP_OAUTH_CLIENT_SECRET || 'eisg-bitrix-mcp-secret-key-987654321';
 };

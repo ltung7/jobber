@@ -131,14 +131,24 @@ Furthermore, the `expiring_documents(days)` high-level MCP tool will check **bot
    - **No Files/Scans:** Strips `FILES`, `WEBDAV_ELEMENTS`, `PHOTO`, `photo`, and any field whose schema type is `file` or `diskfile`, or any object containing `downloadUrl`, `showUrl`, `urlMachine`. In `crm.activity.list`, if `select` is provided by the caller, `FILES` and `STORAGE_ELEMENT_IDS` are forcibly removed from `select`.
    - **No Portal Passwords:** Strips sensitive third-party government portal credentials stored on Deals (`UF_CRM_1787749528909` "Trusted profile login", `UF_CRM_1787749544391` "Trusted profile password", `UF_CRM_1787751004012` "Login", `UF_CRM_1787751012720` "Password") so they are never leaked into LLM context.
 
-### 2.3. Authentication Contract (OAuth 2.0 + Secret URL Token)
-Claude Custom Connectors support either **OAuth 2.0** or a **URL with a secret path/query token**:
-- **URL Secret Token (Minimum / Immediate):**
-  - Endpoint: `https://bitrix.eisg.pl/mcp/<MCP_SECRET_TOKEN>` or `https://bitrix.eisg.pl/mcp?token=<MCP_SECRET_TOKEN>` or `Authorization: Bearer <MCP_SECRET_TOKEN>`.
-  - Verified using constant-time comparison (`crypto.timingSafeEqual`).
-- **Lightweight OAuth 2.0 Provider for Claude Custom Connector:**
-  - `GET /.well-known/oauth-authorization-server` — Returns RFC 8414 OAuth metadata pointing to `https://bitrix.eisg.pl/oauth/authorize` and `https://bitrix.eisg.pl/oauth/token`.
-  - `GET /oauth/authorize` & `POST /oauth/token` — Validates admin secret / PKCE challenge and issues a signed JWT / Bearer token (`MCP_SECRET_TOKEN` HMAC) so Claude.ai Web/Desktop can connect via standard OAuth flow or direct URL token.
+### 2.3. Authentication Contract (Firebase Authentication / Google OAuth 2.0 + Secret URL Token)
+Because the `eisg-fleet` project already has **Firebase Authentication** enabled with both **Google Sign-In (`GoogleAuthProvider`)** and **Email/Password (`signInWithEmailAndPassword`)** — and `firebase-admin` is already bundled inside the minimal Cloud Run container — we use **Firebase Authentication as our OAuth 2.0 Identity Provider** instead of an unverified email form or separate Google Cloud OAuth credentials:
+
+1. **Why Firebase Authentication + Google OAuth2 is Superior & Zero-Config:**
+   - Reuses the existing `eisg-fleet` Firebase project (`PUBLIC_FIREBASE_APIKEY`, `PUBLIC_FIREBASE_AUTH_DOMAIN=eisg-fleet.firebaseapp.com`).
+   - Supports **both** "Sign in with Google" (Google Workspace `@eisg.pl` / `@finnergroup.com` accounts) **and** existing Firebase Email + Password accounts from `manage.eisg.pl`.
+   - Cryptographically verifies the user's real identity on the server via `admin.auth().verifyIdToken(idToken, true)` — eliminating any possibility of typing a fake or unverified email address.
+   - Embeds the verified `email` and `uid` into the signed OAuth Bearer token so every Firestore audit log in `bitrixMcpLog.fdb.ts` records the exact authenticated user (`accountId: decoded.email`).
+
+2. **OAuth 2.0 Flow for Claude.ai Web / Desktop Custom Connector:**
+   - `GET /.well-known/oauth-authorization-server` — Returns RFC 8414 OAuth metadata (`authorization_endpoint: https://bitrix.eisg.pl/oauth/authorize`, `token_endpoint: https://bitrix.eisg.pl/oauth/token`, `code_challenge_methods_supported: ['S256', 'plain']`).
+   - `GET /oauth/authorize` — Serves a login page powered by the official Firebase Auth Web SDK (`signInWithPopup` for Google OAuth2 + `signInWithEmailAndPassword` for Firebase Email/Password). Once the user authenticates with Google or Firebase, the page obtains the Firebase `idToken` and submits it via `POST /oauth/authorize`.
+   - `POST /oauth/authorize` — Calls `admin.auth().verifyIdToken(idToken, true)` via `firebase-admin`, enforces that `decoded.email` belongs to `ALLOWED_DOMAINS` (`['eisg.pl', 'finnergroup.com']`), and generates a short-lived (5-minute), HMAC-SHA256-signed authorization `code` binding `{ uid, email, exp, codeChallenge, codeChallengeMethod, redirectUri }`.
+   - `POST /oauth/token` — Verifies the HMAC-signed `code`, validates PKCE `code_verifier` (when `code_challenge` was supplied) and optional `MCP_OAUTH_CLIENT_ID` / `MCP_OAUTH_CLIENT_SECRET`, and returns an HMAC-signed Bearer token (`mcp_u_<base64url(payload)>.<hmac>`) containing the verified `email` and `uid`.
+
+3. **URL Secret Token (For CLI / Claude Code / OpenCode):**
+   - Endpoint: `https://bitrix.eisg.pl/mcp/<MCP_SECRET_TOKEN>` or `https://bitrix.eisg.pl/mcp?token=<MCP_SECRET_TOKEN>` or `Authorization: Bearer <MCP_SECRET_TOKEN>`.
+   - Verified using constant-time comparison (`crypto.timingSafeEqual`).
 
 ### 2.4. Audit Logging to Firestore (`bitrixMcpLog.fdb.ts`)
 Following the exact pattern in `src/lib/server/db/firebase/template.fdb.ts`:
@@ -348,6 +358,41 @@ Based on the official Bitrix24 REST API documentation:
   2. Searches Contacts by `NAME`, `LAST_NAME`, and `UF_CRM_1787824193587` (`Surname!!!`), Deals by `TITLE`, `UF_CRM_1787745014165` (`Name`), `UF_CRM_1787745029864` (`Surname`), and Leads by `TITLE`, `NAME`, `LAST_NAME`.
   3. Returns matching Contacts, linked Deals (with stage, project, TRC/WP validity dates), and Leads, with all file fields stripped per RODO rules.
 
+### 4.5. Firebase Authentication + Google OAuth 2.0 Implementation (`src/lib/server/mcp/bitrix/auth.ts` & `src/mcp-runner.ts`)
+
+1. **Client-Side Login Page (`GET /oauth/authorize`)**:
+   - Loads Firebase JS SDK (`https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js` and `https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js`) configured with:
+     - `apiKey`: `PUBLIC_FIREBASE_APIKEY` (`AIzaSyCoevtJY26liekze23kH9ZiUhpFMTPsN1M`)
+     - `authDomain`: `PUBLIC_FIREBASE_AUTH_DOMAIN` (`eisg-fleet.firebaseapp.com`)
+     - `projectId`: `PUBLIC_FIREBASE_PROJECT_ID` (`eisg-fleet`)
+   - Renders two real authentication options (matching `src/routes/login/+page.svelte`):
+     - **"Sign in with Google" button** (`signInWithPopup(auth, googleProvider)` with `prompt: 'select_account'`)
+     - **Email & Password form** (`signInWithEmailAndPassword(auth, email, password)`)
+   - Once Firebase authenticates the user, the client script calls `await userCredential.user.getIdToken()` and submits a hidden `<form method="POST" action="/oauth/authorize">` containing `id_token`, `redirect_uri`, `state`, `code_challenge`, and `code_challenge_method`.
+
+2. **Server-Side Firebase Token Verification (`POST /oauth/authorize`)**:
+   - Initializes `firebase-admin` (`initialize()` from `src/lib/server/db/firebase/firebase.ts`) and verifies the submitted `id_token`:
+     ```typescript
+     const decoded = await admin.auth().verifyIdToken(idToken, true);
+     const email = (decoded.email || '').toLowerCase();
+     const domain = email.split('@')[1];
+     if (!email || !domain || !ALLOWED_DOMAINS.includes(domain)) {
+         // Reject with 403 Forbidden
+     }
+     ```
+   - Generates a short-lived (5-minute) HMAC-SHA256 signed authorization code (`createSignedOAuthCode({ uid: decoded.uid, email, exp: Date.now() + 300_000, codeChallenge, codeChallengeMethod })`) signed with `MCP_SECRET_TOKEN`.
+   - Redirects (`302`) to `redirect_uri?code=<signed_code>&state=<state>`.
+
+3. **Token Exchange (`POST /oauth/token`)**:
+   - Verifies the HMAC-signed `code` and checks `exp > Date.now()`.
+   - If `codeChallenge` was included in the `code` payload, verifies `code_verifier` (supporting both `S256` SHA-256 base64url and `plain`).
+   - Issues a signed user access token (`createSignedMcpAccessToken({ uid, email, iat, exp })` -> `mcp_u_<base64url>.<hmac>`).
+
+4. **MCP Request Verification (`verifyMcpRequest` in `src/lib/server/mcp/bitrix/auth.ts`)**:
+   - Accepts either:
+     - **Signed OAuth User Token (`mcp_u_...`)**: Verifies the HMAC signature and expiration, checks `domain in ALLOWED_DOMAINS`, and sets `accountId = payload.email` and `email = payload.email` for Firestore audit logging.
+     - **Static Secret Token (`MCP_SECRET_TOKEN`)**: Constant-time comparison via Bearer header, `?token=`, or `/mcp/<token>` for CLI/OpenCode usage.
+
 ---
 
 ## 5. Google Cloud Run (`europe-central2`) & Subdomain (`bitrix.eisg.pl`) Binding Architecture
@@ -355,24 +400,22 @@ Based on the official Bitrix24 REST API documentation:
 ### 5.1. Cloud Run Service Configuration (Minimal Runner)
 - **GCP Project:** `eisg-fleet` (same project hosting App Engine `manage.eisg.pl` / `jobs.eisg.pl` and Firestore).
 - **Service Name:** `bitrix-mcp`
-- **Region:** **`europe-central2`** (Warsaw, Poland).
-- **Container Footprint:** Uses `Dockerfile.mcp` + `scripts/build-mcp-runner.mjs` to bundle **only** `src/mcp-runner.ts` (`37.7 KB`) and 4 runtime dependencies (`@modelcontextprotocol/sdk`, `axios`, `firebase-admin`, `zod`). No SvelteKit UI routes, components, or unrelated packages are included in the container.
-- **Service Account & Firestore Access:** Uses the default or dedicated service account in `eisg-fleet` with `roles/datastore.user` so `bitrixMcpLog.fdb.ts` writes directly to Firestore with zero extra credential files needed in Cloud Run.
+- **Region:** **`europe-central2`** (Warsaw, Poland) or `europe-west1` (Belgium, supporting direct Cloud Run Domain Mappings).
+- **Container Footprint:** Uses `Dockerfile.mcp` + `scripts/build-mcp-runner.mjs` to bundle **only** `src/mcp-runner.ts` (`~40 KB`) and 4 runtime dependencies (`@modelcontextprotocol/sdk`, `axios`, `firebase-admin`, `zod`). No SvelteKit UI routes, components, or unrelated packages are included in the container.
+- **Service Account & Firestore/Auth Access:** Uses the default service account in `eisg-fleet` so `firebase-admin` can both verify Firebase Auth ID tokens (`admin.auth().verifyIdToken`) and write audit logs to Firestore (`bitrixMcpLog.fdb.ts`) with zero extra credential files needed in Cloud Run.
 
 ### 5.2. Custom Subdomain Mapping (`bitrix.eisg.pl`)
-To bind `https://bitrix.eisg.pl` to the `bitrix-mcp` service in `europe-central2`:
-1. Deploy the minimal container to `europe-central2`:
+To bind `https://bitrix.eisg.pl` to the `bitrix-mcp` service:
+1. Deploy the minimal container:
    ```powershell
    npm run mcp:deploy
    # or: gcloud builds submit --config=cloudbuild.mcp.yaml --project=eisg-fleet
    ```
 2. Map `bitrix.eisg.pl` to the Cloud Run service:
-   - **Option A (Cloudflare / DNS Proxy or Load Balancer):** Point `bitrix.eisg.pl` via Cloudflare CNAME/Origin Rule or GCP Global External Application Load Balancer serverless NEG to the `bitrix-mcp` Cloud Run service in `europe-central2`.
-   - **Option B (Cloud Run Domain Mapping):**
-     ```powershell
-     gcloud beta run domain-mappings create --service=bitrix-mcp --domain=bitrix.eisg.pl --region=europe-central2 --project=eisg-fleet
-     ```
-     And add the `CNAME` record (`bitrix` -> `ghs.googlehosted.com.`) in the `eisg.pl` DNS zone.
+   ```powershell
+   gcloud beta run domain-mappings create --service=bitrix-mcp --domain=bitrix.eisg.pl --region=europe-west1 --project=eisg-fleet
+   ```
+   And add the `CNAME` record (`bitrix` -> `ghs.googlehosted.com.`) in the `eisg.pl` DNS zone.
 
 ---
 
@@ -401,14 +444,18 @@ To bind `https://bitrix.eisg.pl` to the `bitrix-mcp` service in `europe-central2
   - `find_contact(query)`
 - [x] **Task 4.3:** Create `src/lib/server/mcp/bitrix/server.ts` instantiating the `McpServer`, wrapping every tool execution with timing, error catching, RODO output sanitization, and `setBitrixMcpLog` / `addBitrixMcpLog` audit logging to Firestore.
 
-### Phase 5: Streamable HTTP Transport, Minimal Standalone Runner & Auth Endpoints
-- [x] **Task 5.1:** Create `src/lib/server/mcp/bitrix/auth.ts` supporting both URL secret token (`/mcp/<token>` or `?token=<token>`) and `Authorization: Bearer <token>` / OAuth 2.0 JWT verification.
-- [x] **Task 5.2:** Create `src/mcp-runner.ts` and `scripts/build-mcp-runner.mjs` (plus SvelteKit routes `src/routes/mcp/*` and `src/routes/oauth/*` for local dev) so the production build compiles a standalone 38 KB MCP HTTP server (`dist-mcp/server.mjs`) without bundling the whole SvelteKit project.
-- [x] **Task 5.3:** Expose OAuth 2.0 endpoints for Claude Custom Connector (`/.well-known/oauth-authorization-server`, `/oauth/authorize`, and `/oauth/token`).
+### Phase 5: Firebase Authentication (Google OAuth 2.0 + Email/Password) & Streamable HTTP Runner
+- [x] **Task 5.1:** Update `src/lib/server/mcp/bitrix/auth.ts` to add `createSignedOAuthCode`, `verifySignedOAuthCode`, `createSignedMcpAccessToken`, `verifySignedMcpAccessToken`, PKCE `S256` verification, and update `verifyMcpRequest` to validate both HMAC-signed Firebase user tokens (`mcp_u_...`) and the static `MCP_SECRET_TOKEN`.
+- [x] **Task 5.2:** Update `src/mcp-runner.ts` (and `src/routes/oauth/authorize/+server.ts` + `src/routes/oauth/token/+server.ts`) so:
+  - `GET /oauth/authorize` renders the Firebase Authentication UI supporting **Sign in with Google** (`GoogleAuthProvider` popup) and **Firebase Email + Password** (`signInWithEmailAndPassword`).
+  - `POST /oauth/authorize` verifies the Firebase `id_token` on the server via `admin.auth().verifyIdToken(idToken, true)`, enforces `@eisg.pl` / `@finnergroup.com` domain membership, and redirects with a signed authorization `code`.
+  - `POST /oauth/token` validates the signed `code` + PKCE `code_verifier` and returns the user's signed Bearer token.
+- [x] **Task 5.3:** Update `scripts/build-mcp-runner.mjs` to expose `PUBLIC_FIREBASE_APIKEY` and `PUBLIC_FIREBASE_AUTH_DOMAIN` to `src/mcp-runner.ts` and rebuild `dist-mcp/server.mjs`.
+- [x] **Task 5.4:** Add unit tests in `src/lib/server/mcp/bitrix/__tests__/mcp-bitrix.test.ts` covering signed OAuth code/token creation, PKCE `S256` verification, and rejection of unverified/forged tokens.
 
-### Phase 6: Cloud Run Deployment (`europe-central2`) & Subdomain Mapping
-- [x] **Task 6.1:** Create `Dockerfile.mcp` (copying and bundling ONLY the minimal MCP runner files into `dist-mcp/server.mjs` with 4 runtime dependencies) and `cloudbuild.mcp.yaml` targeting `europe-central2`.
-- [ ] **Task 6.2:** Run `npm run mcp:deploy` to deploy to Google Cloud Run (`service: bitrix-mcp`, `region: europe-central2`, `project: eisg-fleet`) and map custom domain `bitrix.eisg.pl`.
+### Phase 6: Cloud Run Deployment & Subdomain Mapping
+- [x] **Task 6.1:** Create `Dockerfile.mcp` (copying and bundling ONLY the minimal MCP runner files into `dist-mcp/server.mjs` with 4 runtime dependencies) and `cloudbuild.mcp.yaml`.
+- [x] **Task 6.2:** Run `npm run mcp:deploy` (`gcloud builds submit --config=cloudbuild.mcp.yaml --project=eisg-fleet`) to deploy the updated Firebase Auth OAuth flow to Google Cloud Run (`service: bitrix-mcp`).
 
 ---
 
@@ -424,22 +471,16 @@ The implementation must pass all of the following automated and manual verificat
    - **Read-Only Enforcement:** Calling `callBitrixReadOnly('crm.item.add', ...)` or `crm.lead.update` or `crm.deal.delete` throws `BitrixReadOnlyViolationError` and logs `status: 'BLOCKED_WRITE_ATTEMPT'` to `bitrixMcpLog.fdb.ts`.
    - **Entity Type Restriction:** Calling `crm_item_list` with `entityTypeId: 4` (Company) or `31` (Invoice) is rejected.
    - **RODO Sanitizer:** Payloads containing `PHOTO`, `FILES`, `downloadUrl`, `UF_CRM_1787749544391` (Trusted profile password) have those fields stripped before returning to the MCP caller.
-   - **Firestore Audit Logging:** Every tool execution calls `setBitrixMcpLog` / `addBitrixMcpLog` with `accountId`, `toolName`, `bitrixMethods`, `params`, `durationMs`, and `createdAt`.
+   - **Firebase OAuth & Token Verification:** Unverified emails or forged Bearer tokens are rejected (`401`/`403`); valid HMAC-signed tokens issued after `admin.auth().verifyIdToken` authenticate with the user's verified `@eisg.pl` / `@finnergroup.com` email.
+   - **Firestore Audit Logging:** Every tool execution calls `setBitrixMcpLog` / `addBitrixMcpLog` with `accountId` (verified user email), `toolName`, `bitrixMethods`, `params`, `durationMs`, and `createdAt`.
    - **High-Level Tools:** `order_fill`, `funnel_stats`, `expiring_documents`, `overdue_tasks`, and `find_contact` return valid structured JSON matching live Bitrix24 schemas.
 
-2. **TypeScript & SvelteKit Type Check:**
+2. **Standalone MCP Bundle Build Check:**
    ```powershell
-   npm run check
+   node scripts/build-mcp-runner.mjs
    ```
 
-3. **Provisioning Verification (Contact Custom Fields):**
-   ```powershell
-   npx tsx scripts/bitrix-provision-fields.ts --dry-run
-   npx tsx scripts/bitrix-provision-fields.ts --apply
-   ```
-   Verify via `crm.item.fields` (`entityTypeId: 3`) that the Contact validity date fields exist and are of type `date`.
-
-4. **Streamable HTTP MCP Handshake & Tool Call Smoke Test:**
+3. **Streamable HTTP MCP Handshake & Tool Call Smoke Test:**
    ```powershell
    curl -i -X POST "https://bitrix.eisg.pl/mcp/$env:MCP_SECRET_TOKEN" `
      -H "Content-Type: application/json" `
@@ -447,25 +488,44 @@ The implementation must pass all of the following automated and manual verificat
      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"claude-test","version":"1.0.0"}}}'
    ```
 
+---
+
+## 8. Manual Setup & Client Integration Instructions
+
+### 8.1. Manual Steps Required From You (Cannot Be Run via CLI)
+
+#### Step 1: Authorize `bitrix.eisg.pl` in Firebase Authentication Console (1 minute)
+Because the `/oauth/authorize` login page runs on `https://bitrix.eisg.pl` and opens the Google Sign-In popup via Firebase Auth, Firebase requires `bitrix.eisg.pl` to be listed in its **Authorized domains**:
+1. Open the [Firebase Console](https://console.firebase.google.com/) and select the **`eisg-fleet`** project.
+2. In the left sidebar, go to **Build -> Authentication** -> click the **Settings** tab -> click **Authorized domains**.
+3. Click **Add domain**, enter **`bitrix.eisg.pl`**, and click **Add**.
+
+#### Step 2: Verify DNS CNAME Record for `bitrix.eisg.pl` (If not already active)
+In your DNS provider for `eisg.pl`:
+- Ensure there is a `CNAME` record:
+  - **Name / Host:** `bitrix`
+  - **Target / Value:** `ghs.googlehosted.com.`
+  - *(If using Cloudflare, set Proxy status to **DNS only / Grey cloud** while Google Cloud Run provisions the managed SSL certificate).*
+
+#### Step 3: Connect in Claude.ai Web / Desktop
+1. Open **Claude.ai** -> **Settings** -> **Connectors / Integrations** -> **Add Custom Connector**.
+2. Fill in the connector form:
+   - **Remote MCP Server URL:** `https://bitrix.eisg.pl/mcp`
+   - **OAuth Client ID *(optional)*:** `eisg-bitrix-mcp-client` *(or leave blank)*
+   - **OAuth Client Secret *(optional)*:** `eisg-bitrix-mcp-secret-key-987654321` *(or leave blank)*
+3. Click **Connect**.
+4. A popup window will open to `https://bitrix.eisg.pl/oauth/authorize`:
+   - Click **"Sign in with Google"** (and select your `@eisg.pl` or `@finnergroup.com` Google account), **OR**
+   - Enter your existing `manage.eisg.pl` Firebase email and password.
+5. Firebase & `firebase-admin` will verify your credentials and redirect you back to Claude.ai with a verified access token.
 
 ---
 
-## 8. Client Integration Instructions (OAuth & API Key)
-
-### 8.1. API Key / Secret Token Integration (Claude Code, OpenCode, CLI, SSE Clients)
-For CLI tools, local development, Claude Code, or OpenCode, connect via the Streamable HTTP transport passing the secret token either as a Bearer header, URL query parameter, or URL path token:
-
+### 8.2. Direct Secret Token Integration (For Claude Code, OpenCode, CLI)
+For CLI tools or local agents that do not use interactive browser OAuth, pass the 64-character secret token directly:
 1. **URL Path Token:**
-   `https://bitrix.eisg.pl/mcp/a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0`
+   `https://bitrix.eisg.pl/mcp/nUYbkGydwzTBJoYSAQKbRblOA1L8gY3OEOgcCuTowTlvGeykoChjVFD7rDqKdDYa`
 2. **Query Parameter:**
-   `https://bitrix.eisg.pl/mcp?token=a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0`
+   `https://bitrix.eisg.pl/mcp?token=nUYbkGydwzTBJoYSAQKbRblOA1L8gY3OEOgcCuTowTlvGeykoChjVFD7rDqKdDYa`
 3. **Authorization Header:**
-   - Header name: `Authorization`
-   - Header value: `Bearer a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0`
-
-### 8.2. OAuth 2.0 Integration (Claude.ai Web / Desktop Custom Connector)
-For Claude.ai Web or Desktop Custom Connectors:
-1. In Claude Settings -> Connectors / Integrations -> Add Custom Connector.
-2. Enter Server URL: `https://bitrix.eisg.pl/mcp` (or discovery endpoint `https://bitrix.eisg.pl/.well-known/oauth-authorization-server`).
-3. Claude will initiate the OAuth flow, prompting you to enter your corporate email (`@eisg.pl` or `@finnergroup.com`).
-4. Upon successful domain validation, the access token is issued securely.
+   `Authorization: Bearer nUYbkGydwzTBJoYSAQKbRblOA1L8gY3OEOgcCuTowTlvGeykoChjVFD7rDqKdDYa`

@@ -29,6 +29,8 @@ const minimalMcpPlugin = {
                 export const PUBLIC_FIREBASE_PROJECT_ID = process.env.PUBLIC_FIREBASE_PROJECT_ID || 'eisg-fleet';
                 export const PUBLIC_FIREBASE_REALTIME_URL = process.env.PUBLIC_FIREBASE_REALTIME_URL || 'https://eisg-fleet-default-rtdb.europe-west1.firebasedatabase.app';
                 export const PUBLIC_FIREBASE_STORAGE_BUCKET = process.env.PUBLIC_FIREBASE_STORAGE_BUCKET || 'eisg-fleet.firebasestorage.app';
+                export const PUBLIC_FIREBASE_APIKEY = process.env.PUBLIC_FIREBASE_APIKEY || 'AIzaSyCoevtJY26liekze23kH9ZiUhpFMTPsN1M';
+                export const PUBLIC_FIREBASE_AUTH_DOMAIN = process.env.PUBLIC_FIREBASE_AUTH_DOMAIN || 'eisg-fleet.firebaseapp.com';
             `,
             loader: 'js'
         }));
