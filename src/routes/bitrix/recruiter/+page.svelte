@@ -50,18 +50,20 @@
 	let recruiterStatusFilter = $state<Record<string, 'all' | 'passed' | 'failed'>>({});
 
 	// Generate last 18 months array for the left sidebar navigation
+	// Billing period label is shown +2 months forward (e.g. data for August 2026 is labeled October 2026)
 	const allMonths = Array.from({ length: 18 }).map((_, i) => {
 		const d = dayjs().subtract(i, 'month');
+		const displayDate = d.add(2, 'month');
 		let status: 'in-prep' | 'active' | 'ready' | 'archived' = 'archived';
 		if (i === 0) status = 'in-prep';
 		else if (i === 1) status = 'active';
 		else if (i === 2) status = 'ready';
 
 		return {
-			label: d.format('MMMM YYYY'),
+			label: displayDate.format('MMMM YYYY'),
 			month: d.format('MM'),
 			year: d.format('YYYY'),
-			monthName: d.format('MMMM'),
+			monthName: displayDate.format('MMMM'),
 			status
 		};
 	});
@@ -69,7 +71,12 @@
 	let filteredMonths = $derived(allMonths.filter((m) => m.label.toLowerCase().includes(monthSearch.trim().toLowerCase())));
 
 	const selectedMonthObj = $derived(dayjs(`${selectedYear}-${selectedMonth}-01`));
-	const selectedMonthLabel = $derived(customFrom ? `${dayjs(`${customFrom}-01`).format('MMM YYYY')} - ${dayjs(`${customTo}-01`).format('MMM YYYY')}` : selectedMonthObj.format('MMMM YYYY'));
+	// Billing period shown is +2 months forward from the underlying data start month
+	const selectedMonthLabel = $derived(
+		customFrom
+			? `${dayjs(`${customFrom}-01`).add(2, 'month').format('MMM YYYY')} - ${dayjs(`${customTo}-01`).add(2, 'month').format('MMM YYYY')}`
+			: selectedMonthObj.add(2, 'month').format('MMMM YYYY')
+	);
 	const evalPeriodStartLabel = $derived(customFrom ? dayjs(`${customFrom}-01`).startOf('month').format('MMM 01, YYYY') : selectedMonthObj.startOf('month').format('MMM 01, YYYY'));
 	const evalPeriodEndLabel = $derived(customTo ? dayjs(`${customTo}-01`).endOf('month').format('MMM DD, YYYY') : selectedMonthObj.endOf('month').format('MMM DD, YYYY'));
 
@@ -504,14 +511,14 @@
 				<!-- Payout Value Input -->
 				<div class="col-12 col-md-6">
 					<label for="payoutValueInput" class="form-label text-xs fw-bold text-slate-700 text-uppercase mb-1">
-						Payout Value (&euro;) <span class="text-danger">*</span>
+						Payout Value (PLN) <span class="text-danger">*</span>
 					</label>
 					<div class="input-group input-group-sm">
-						<span class="input-group-text bg-slate-100 text-slate-700 fw-bold border-slate-200">&euro;</span>
+						<span class="input-group-text bg-slate-100 text-slate-700 fw-bold border-slate-200">PLN</span>
 						<input id="payoutValueInput" type="number" class="form-control form-control-sm text-xs border-slate-200" bind:value={payoutValue} min="0" step="50" placeholder="0" />
 					</div>
 					<div class="text-muted text-2xs mt-1">
-						Default calculation: {selectedPaymentPassedContractors.length} passed &times; &euro;150 = &euro;{selectedPaymentPassedContractors.length * 150}
+						Default calculation: {selectedPaymentPassedContractors.length} passed &times; 150 PLN = {selectedPaymentPassedContractors.length * 150} PLN
 					</div>
 				</div>
 
@@ -523,7 +530,7 @@
 							<strong class="text-slate-800 ms-1">{selectedMonthLabel} ({selectedYear}-{selectedMonth})</strong>
 						</div>
 						<div>
-							<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 text-2xs fw-semibold"> Quota Rate: &euro;150 / contractor </span>
+							<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 text-2xs fw-semibold"> Quota Rate: 150 PLN / contractor </span>
 						</div>
 					</div>
 				</div>
@@ -544,7 +551,7 @@
 					</div>
 
 					{#if selectedPaymentPassedContractors.length === 0}
-						<div class="alert alert-light border border-slate-200 text-secondary text-xs py-2 px-3 mb-0 rounded-3">No passed contractors found for this recruiter in the selected period. Default payout is &euro;0.</div>
+						<div class="alert alert-light border border-slate-200 text-secondary text-xs py-2 px-3 mb-0 rounded-3">No passed contractors found for this recruiter in the selected period. Default payout is 0 PLN.</div>
 					{:else}
 						<div class="table-responsive border border-slate-200 rounded-3 max-h-200">
 							<table class="table table-sm align-middle mb-0 text-xs">
@@ -566,7 +573,7 @@
 													{contractor.totalWorkedDays} days
 												</span>
 											</td>
-											<td class="py-1.5 text-end pe-3 text-success fw-bold text-2xs"> + &euro;150 </td>
+											<td class="py-1.5 text-end pe-3 text-success fw-bold text-2xs"> + 150 PLN </td>
 										</tr>
 									{/each}
 								</tbody>
@@ -707,7 +714,7 @@
 								<span class="stat-label">Provision Forecast</span>
 								{#if totalPaidInPeriod > 0}
 									<span class="badge rounded-pill bg-success-subtle text-success fw-bold text-xs px-2.5 py-1">
-										&euro;{totalPaidInPeriod.toLocaleString('de-DE')} Recorded
+										{totalPaidInPeriod.toLocaleString('de-DE')} PLN Recorded
 									</span>
 								{:else}
 									<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis fw-bold text-xs px-2 py-0.5"> Release Ready </span>
@@ -715,14 +722,14 @@
 							</div>
 							<div>
 								<div class="d-flex align-items-baseline gap-2">
-									<span class="stat-value">€{provisionForecast}</span>
+									<span class="stat-value">{provisionForecast} PLN</span>
 								</div>
 								<div class="stat-footer mt-1 text-secondary">
 									<strong class="text-slate-800">{totalPassed}</strong> Approved accounts ready for payout
 									{#if totalPaidInPeriod > 0}
 										<div class="text-success fw-semibold mt-1 d-flex align-items-center gap-1">
 											<UIcon name="check-circle" size="6" />
-											<span>&euro;{totalPaidInPeriod.toLocaleString('de-DE')} recorded in system</span>
+											<span>{totalPaidInPeriod.toLocaleString('de-DE')} PLN recorded in system</span>
 										</div>
 									{/if}
 								</div>
@@ -745,7 +752,7 @@
 								<span class="ms-2 fw-bold text-xs tracking-wider text-slate-800 text-uppercase">Billing Periods</span>
 							</div>
 							<span class="badge bg-slate-100 text-slate-600 border rounded-pill px-2 py-0.5 text-2xs">
-								{allMonths[allMonths.length - 1].year}–{allMonths[0].year}
+								{allMonths[allMonths.length - 1].monthName.substring(0, 3)} '{allMonths[allMonths.length - 1].label.split(' ')[1].substring(2)} – {allMonths[0].monthName.substring(0, 3)} '{allMonths[0].label.split(' ')[1].substring(2)}
 							</span>
 						</div>
 
@@ -847,7 +854,7 @@
 										</span>
 									</div>
 									<div class="text-xs fw-bold text-emerald-900">
-										Total Period Paid: <span class="text-success fs-6">&euro;{totalPaidInPeriod.toLocaleString('de-DE')}</span>
+										Total Period Paid: <span class="text-success fs-6">{totalPaidInPeriod.toLocaleString('de-DE')} PLN</span>
 									</div>
 								</div>
 								<div class="table-responsive">
@@ -869,7 +876,7 @@
 													</td>
 													<td class="py-2 text-center">
 														<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-bold text-xs">
-															&euro;{Number(p.payoutValue).toLocaleString('de-DE')}
+															{Number(p.payoutValue).toLocaleString('de-DE')} PLN
 														</span>
 													</td>
 													<td class="py-2 text-slate-700">
@@ -934,7 +941,7 @@
 												{#if groupPayouts.length > 0}
 													{@const groupPaidTotal = groupPayouts.reduce((s, p) => s + (Number(p.payoutValue) || 0), 0)}
 													<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-2 text-xs fw-bold d-inline-flex align-items-center">
-														<UIcon name="check-circle" size="6" /><span class="ms-1.5">Paid: &euro;{groupPaidTotal.toLocaleString('de-DE')}</span>
+														<UIcon name="check-circle" size="6" /><span class="ms-1.5">Paid: {groupPaidTotal.toLocaleString('de-DE')} PLN</span>
 													</span>
 												{/if}
 												<button
