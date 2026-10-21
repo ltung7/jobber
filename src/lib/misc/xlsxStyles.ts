@@ -22,6 +22,7 @@ const right = { alignment: { horizontal: 'right', wrapText: true } };
 const bigCentered = { border, alignment: { vertical: 'center', horizontal: 'center', wrapText: true }, font: { bold: true, sz: 16 } };
 const wrapped = { border, alignment: { vertical: 'center', wrapText: true } };
 const summary = { border: borderThickTop, numFmt: '0.00', alignment: { horizontal: 'right' }, font: { bold: true, sz: 13 } }
+const summaryCentered = { border: borderThickTop, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, font: { bold: true } };
 
 const styles: Record<string,ExplicitAnyToExtend> = {
     bordered,
@@ -34,6 +35,7 @@ const styles: Record<string,ExplicitAnyToExtend> = {
     bigCentered,
     wrapped,
     summary,
+    summaryCentered,
     centeredBorderless
 }
 
@@ -49,6 +51,7 @@ export const cellStyles = {
     bigCentered: 'bigCentered',
     wrapped: 'wrapped',
     summary: 'summary',
+    summaryCentered: 'summaryCentered',
     centeredBorderless: 'centeredBorderless'
 }
 

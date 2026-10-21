@@ -565,17 +565,11 @@
 			</div>
 
 			<div class="col-lg-4 d-flex justify-content-lg-end align-items-center gap-2">
-				<button type="button" class="btn btn-success btn-sm d-flex align-items-center px-3 py-2 rounded-3 shadow-xs" onclick={() => openPaymentModal()}>
-					<UIcon name="plus" size="6" /><span class="ms-2 fw-semibold text-xs">Add Payment</span>
+				<button type="button" class="btn btn-success btn-sm d-flex align-items-center shadow-xs" onclick={() => openPaymentModal()}>
+					<UIcon name="plus" /><span class="ms-2 fw-semibold text-xs">Add Payment</span>
 				</button>
 
-				{#if !loading && aggregated.length > 0}
-					<DownloadRecruiterStats {aggregated} {selectedYear} {selectedMonth} />
-				{:else}
-					<button class="btn btn-primary btn-sm d-flex align-items-center px-3 py-2 rounded-3 shadow-xs disabled opacity-75" disabled>
-						<UIcon name="download" size="6" /><span class="ms-2 fw-semibold text-xs">Download Stats (.xlsx)</span>
-					</button>
-				{/if}
+				<DownloadRecruiterStats {aggregated} {selectedYear} {selectedMonth} />
 			</div>
 		</div>
 
