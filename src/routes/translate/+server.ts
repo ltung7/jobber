@@ -8,7 +8,7 @@ import {
 
 export const POST: RequestHandler = async ({ request, url }) => {
 	checkSecurity(request, url);
-	
+
 	let body: {
 		fields: TranslatableJobInfo;
 		targetLang?: Lang | string;

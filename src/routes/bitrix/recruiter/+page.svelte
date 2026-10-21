@@ -9,6 +9,7 @@
 	import Flatpickr from 'svelte-flatpickr';
 	import 'flatpickr/dist/flatpickr.css';
 	import { addToast } from '$lib/toast';
+	import { fly, slide } from 'svelte/transition';
 
 	const CONTACT_BASE_URL = 'https://eisg.bitrix24.pl/crm/contact/details/';
 	const DEAL_BASE_URL = 'https://eisg.bitrix24.pl/crm/deal/details/';
@@ -833,419 +834,421 @@
 						<p class="text-secondary small mb-0">There are no contacts with their absolute first deal starting in {selectedMonthLabel}.</p>
 					</div>
 				{:else}
-					<!-- RECORDED PAYOUTS SUMMARY FOR ACTIVE PERIOD (IF ANY) -->
-					{#if periodPayouts.length > 0}
-						<div class="card shadow-xs border-success-subtle bg-white rounded-3 mb-3 overflow-hidden">
-							<div class="card-header bg-emerald-50 border-bottom border-emerald-200 py-2.5 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
-								<div class="d-flex align-items-center text-emerald-900">
-									<UIcon name="credit-card" size="6" class="text-success" />
-									<span class="ms-2 fw-bold text-xs tracking-wider text-uppercase">Recorded Payouts for {selectedMonthLabel}</span>
-									<span class="badge bg-success text-white rounded-pill ms-2 px-2 py-0.5 text-2xs">
-										{periodPayouts.length} Recorded
-									</span>
-								</div>
-								<div class="text-xs fw-bold text-emerald-900">
-									Total Period Paid: <span class="text-success fs-6">&euro;{totalPaidInPeriod.toLocaleString('de-DE')}</span>
-								</div>
-							</div>
-							<div class="table-responsive">
-								<table class="table table-sm align-middle mb-0 text-xs">
-									<thead class="table-light text-2xs text-muted text-uppercase">
-										<tr>
-											<th class="ps-3 py-2">Recruiter</th>
-											<th class="py-2 text-center">Amount</th>
-											<th class="py-2">Included Contractors</th>
-											<th class="py-2 text-center">Date Recorded</th>
-											<th class="py-2 pe-3">Notes</th>
-										</tr>
-									</thead>
-									<tbody>
-										{#each periodPayouts as p (p.id || p.createdAt)}
-											<tr>
-												<td class="ps-3 py-2 fw-bold text-slate-800">
-													{p.recruiterName || (data.recruiterOptions?.[p.recruiterId] ?? `#${p.recruiterId}`)}
-												</td>
-												<td class="py-2 text-center">
-													<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-bold text-xs">
-														&euro;{Number(p.payoutValue).toLocaleString('de-DE')}
-													</span>
-												</td>
-												<td class="py-2 text-slate-700">
-													{#if p.includedContractors && p.includedContractors.length > 0}
-														<span class="fw-semibold">{p.includedContractors.length} Contractor(s):</span>
-														<span class="text-muted ms-1 text-2xs">
-															{p.includedContractors.map((c: any) => `${c.name || '#' + c.id} (${c.days}d)`).join(', ')}
-														</span>
-													{:else}
-														<span class="text-muted italic">None specified</span>
-													{/if}
-												</td>
-												<td class="py-2 text-center text-muted text-2xs">
-													{dayjs(p.createdAt).format('DD.MM.YYYY HH:mm')}
-												</td>
-												<td class="py-2 pe-3 text-secondary text-2xs">
-													{p.note || '—'}
-												</td>
-											</tr>
-										{/each}
-									</tbody>
-								</table>
-							</div>
-						</div>
-					{/if}
-
-					<div class="d-flex flex-column gap-3">
-						{#each aggregated as group, index (group.recruiterId)}
-							{@const isExpanded = isRecruiterExpanded(group.recruiterId, index)}
-							{@const filteredContacts = getFilteredContacts(group)}
-							{@const activeFilter = recruiterStatusFilter[group.recruiterId] || 'all'}
-
-							<div class="card recruiter-group-card shadow-xs border-slate-200 rounded-3 overflow-hidden">
-								<!-- Recruiter Card Header -->
-								<div
-									class="card-header bg-white p-3 p-md-3.5 d-flex flex-wrap align-items-center justify-content-between gap-3 border-bottom-0 cursor-pointer"
-									onclick={() => toggleExpandRecruiter(group.recruiterId, index)}
-									role="button"
-									tabindex="0"
-									onkeydown={(e) => {
-										if (e.key === 'Enter' || e.key === ' ') {
-											e.preventDefault();
-											toggleExpandRecruiter(group.recruiterId, index);
-										}
-									}}
-								>
-									<div class="d-flex align-items-center gap-3">
-										<span class="status-pulse-dot {group.recruiterId === 'Unassigned' ? 'bg-warning' : 'bg-success'} flex-shrink-0"></span>
-										<div>
-											<div class="d-flex align-items-center gap-2 flex-wrap">
-												<h2 class="h5 fw-bold text-slate-900 mb-0">{group.recruiterName}</h2>
-												<span class="badge bg-slate-100 text-slate-700 border rounded-pill px-2 py-0.5 text-xs fw-medium">
-													{group.recruiterId === 'Unassigned' ? 'Unassigned' : `Recruiter ID: #${group.recruiterId}`}
-												</span>
-											</div>
-										</div>
-									</div>
-
-									<div class="d-flex align-items-center gap-2 flex-wrap">
-										{#if group.recruiterId !== 'Unassigned'}
-											{@const groupPayouts = periodPayouts.filter((p) => p.recruiterId === group.recruiterId)}
-											{#if groupPayouts.length > 0}
-												{@const groupPaidTotal = groupPayouts.reduce((s, p) => s + (Number(p.payoutValue) || 0), 0)}
-												<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-2 text-xs fw-bold d-inline-flex align-items-center">
-													<UIcon name="check-circle" size="6" /><span class="ms-1.5">Paid: &euro;{groupPaidTotal.toLocaleString('de-DE')}</span>
-												</span>
-											{/if}
-											<button
-												type="button"
-												class="btn btn-sm btn-outline-success rounded-pill px-3 py-2 text-xs fw-bold d-inline-flex align-items-center gap-1 shadow-xs"
-												onclick={(e) => {
-													e.stopPropagation();
-													openPaymentModal(group.recruiterId);
-												}}
-											>
-												<UIcon name="plus" size="6" />
-												<span>Add Payment</span>
-											</button>
-										{/if}
-
-										<span class="badge rounded-pill bg-success text-white px-3 py-2 text-xs fw-bold shadow-xs d-inline-flex align-items-center">
-											<UIcon name="check" size="6" /><span class="ms-2">{group.totalSuccessful} / {group.totalStarted} Passed</span>
+					<div in:fly={{ y: -25 }}>
+						<!-- RECORDED PAYOUTS SUMMARY FOR ACTIVE PERIOD (IF ANY) -->
+						{#if periodPayouts.length > 0}
+							<div class="card shadow-xs border-success-subtle bg-white rounded-3 mb-3 overflow-hidden">
+								<div class="card-header bg-emerald-50 border-bottom border-emerald-200 py-2.5 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+									<div class="d-flex align-items-center text-emerald-900">
+										<UIcon name="credit-card" size="6" class="text-success" />
+										<span class="ms-2 fw-bold text-xs tracking-wider text-uppercase">Recorded Payouts for {selectedMonthLabel}</span>
+										<span class="badge bg-success text-white rounded-pill ms-2 px-2 py-0.5 text-2xs">
+											{periodPayouts.length} Recorded
 										</span>
-
-										<button
-											type="button"
-											class="ms-2 btn btn-light btn-sm rounded-circle d-flex align-items-center justify-content-center p-2 text-slate-600 border hover-bg-slate-100"
-											style="width: 34px; height: 34px;"
-											onclick={(e) => {
-												e.stopPropagation();
-												toggleExpandRecruiter(group.recruiterId, index);
-											}}
-											aria-label={isExpanded ? 'Collapse recruiter' : 'Expand recruiter'}
-										>
-											<UIcon name={isExpanded ? 'angle-up' : 'angle-down'} size="6" class="m-0" />
-										</button>
+									</div>
+									<div class="text-xs fw-bold text-emerald-900">
+										Total Period Paid: <span class="text-success fs-6">&euro;{totalPaidInPeriod.toLocaleString('de-DE')}</span>
 									</div>
 								</div>
+								<div class="table-responsive">
+									<table class="table table-sm align-middle mb-0 text-xs">
+										<thead class="table-light text-2xs text-muted text-uppercase">
+											<tr>
+												<th class="ps-3 py-2">Recruiter</th>
+												<th class="py-2 text-center">Amount</th>
+												<th class="py-2">Included Contractors</th>
+												<th class="py-2 text-center">Date Recorded</th>
+												<th class="py-2 pe-3">Notes</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#each periodPayouts as p (p.id || p.createdAt)}
+												<tr>
+													<td class="ps-3 py-2 fw-bold text-slate-800">
+														{p.recruiterName || (data.recruiterOptions?.[p.recruiterId] ?? `#${p.recruiterId}`)}
+													</td>
+													<td class="py-2 text-center">
+														<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-bold text-xs">
+															&euro;{Number(p.payoutValue).toLocaleString('de-DE')}
+														</span>
+													</td>
+													<td class="py-2 text-slate-700">
+														{#if p.includedContractors && p.includedContractors.length > 0}
+															<span class="fw-semibold">{p.includedContractors.length} Contractor(s):</span>
+															<span class="text-muted ms-1 text-2xs">
+																{p.includedContractors.map((c: any) => `${c.name || '#' + c.id} (${c.days}d)`).join(', ')}
+															</span>
+														{:else}
+															<span class="text-muted italic">None specified</span>
+														{/if}
+													</td>
+													<td class="py-2 text-center text-muted text-2xs">
+														{dayjs(p.createdAt).format('DD.MM.YYYY HH:mm')}
+													</td>
+													<td class="py-2 pe-3 text-secondary text-2xs">
+														{p.note || '—'}
+													</td>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						{/if}
 
-								<!-- Collapsible Body -->
-								{#if isExpanded}
-									<div class="card-body p-0 border-top border-slate-200 bg-white">
-										<!-- Table Filter & Search Controls Toolbar -->
-										<div class="px-3 py-2.5 bg-slate-50 border-bottom border-slate-200 d-flex flex-wrap align-items-center justify-content-between gap-2">
-											<div class="position-relative recruiter-table-search">
-												<i class="fi fi-rr-search position-absolute text-muted table-search-icon"></i>
-												<input type="text" class="form-control form-control-sm ps-4 rounded-3 text-xs bg-white border-slate-200" placeholder="Search contact or name or ID..." value={recruiterSearch[group.recruiterId] || ''} oninput={(e) => (recruiterSearch[group.recruiterId] = (e.target as HTMLInputElement).value)} />
-											</div>
+						<div class="d-flex flex-column gap-3">
+							{#each aggregated as group, index (group.recruiterId)}
+								{@const isExpanded = isRecruiterExpanded(group.recruiterId, index)}
+								{@const filteredContacts = getFilteredContacts(group)}
+								{@const activeFilter = recruiterStatusFilter[group.recruiterId] || 'all'}
 
-											<div class="d-flex align-items-center gap-2">
-												<span class="text-xs text-secondary fw-semibold me-1">Filter:</span>
-												<div class="btn-group btn-group-sm shadow-xs rounded-pill p-0.5 bg-white border gap-2" role="group">
-													<button type="button" class="btn btn-sm rounded-pill px-2.5 py-0.5 text-xs fw-semibold {activeFilter === 'all' ? 'btn-primary' : 'btn-light text-secondary'}" onclick={() => (recruiterStatusFilter[group.recruiterId] = 'all')}>
-														All ({group.contacts.length})
-													</button>
-													<button type="button" class="btn btn-sm rounded-pill px-2.5 py-0.5 text-xs fw-semibold {activeFilter === 'passed' ? 'btn-success text-white' : 'btn-light text-secondary'}" onclick={() => (recruiterStatusFilter[group.recruiterId] = 'passed')}>
-														Passed ({group.totalSuccessful})
-													</button>
-													<button type="button" class="btn btn-sm rounded-pill px-2.5 py-0.5 text-xs fw-semibold {activeFilter === 'failed' ? 'btn-danger text-white' : 'btn-light text-secondary'}" onclick={() => (recruiterStatusFilter[group.recruiterId] = 'failed')}>
-														Failed ({group.totalStarted - group.totalSuccessful})
-													</button>
+								<div class="card recruiter-group-card shadow-xs border-slate-200 rounded-3 overflow-hidden">
+									<!-- Recruiter Card Header -->
+									<div
+										class="card-header bg-white p-3 p-md-3.5 d-flex flex-wrap align-items-center justify-content-between gap-3 border-bottom-0 cursor-pointer"
+										onclick={() => toggleExpandRecruiter(group.recruiterId, index)}
+										role="button"
+										tabindex="0"
+										onkeydown={(e) => {
+											if (e.key === 'Enter' || e.key === ' ') {
+												e.preventDefault();
+												toggleExpandRecruiter(group.recruiterId, index);
+											}
+										}}
+									>
+										<div class="d-flex align-items-center gap-3">
+											<span class="status-pulse-dot {group.recruiterId === 'Unassigned' ? 'bg-warning' : 'bg-success'} flex-shrink-0"></span>
+											<div>
+												<div class="d-flex align-items-center gap-2 flex-wrap">
+													<h2 class="h5 fw-bold text-slate-900 mb-0">{group.recruiterName}</h2>
+													<span class="badge bg-slate-100 text-slate-700 border rounded-pill px-2 py-0.5 text-xs fw-medium">
+														{group.recruiterId === 'Unassigned' ? 'Unassigned' : `Recruiter ID: #${group.recruiterId}`}
+													</span>
 												</div>
 											</div>
 										</div>
 
-										<!-- Contacts Data Table -->
-										<div class="table-responsive">
-											<table class="table align-middle mb-0 custom-contacts-table">
-												<thead>
-													<tr>
-														<th class="ps-3 cursor-pointer user-select-none hover-dark" style="width: 80px;" onclick={() => toggleSort('id')}>
-															<div class="d-flex align-items-center gap-1">
-																ID
-																{#if sortColumn === 'id'}
-																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
-																{/if}
-															</div>
-														</th>
-														<th class="cursor-pointer user-select-none hover-dark" onclick={() => toggleSort('name')}>
-															<div class="d-flex align-items-center gap-1">
-																CONTRACTOR NAME
-																{#if sortColumn === 'name'}
-																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
-																{/if}
-															</div>
-														</th>
-														<th class="cursor-pointer user-select-none hover-dark" onclick={() => toggleSort('placement')}>
-															<div class="d-flex align-items-center gap-1">
-																PROJECT
-																{#if sortColumn === 'placement'}
-																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
-																{/if}
-															</div>
-														</th>
-														<th class="text-center cursor-pointer user-select-none hover-dark" style="width: 160px;" onclick={() => toggleSort('totalWorkedDays')}>
-															<div class="d-flex align-items-center justify-content-center gap-1">
-																<TooltipText text="TOTAL WORKED DAYS" hoverText="Sum of worked days across all deals. Target &ge; 30 days to qualify for commission." placement="top" />
-																{#if sortColumn === 'totalWorkedDays'}
-																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
-																{/if}
-															</div>
-														</th>
-														<th class="text-center cursor-pointer user-select-none hover-dark" style="width: 140px;" onclick={() => toggleSort('evalPeriodDays')}>
-															<div class="d-flex align-items-center justify-content-center gap-1">
-																<TooltipText text="EVAL PERIOD DAYS" hoverText="Worked days evaluated strictly in the 2-month qualifying window." placement="top" />
-																{#if sortColumn === 'evalPeriodDays'}
-																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
-																{/if}
-															</div>
-														</th>
-														<th class="text-center cursor-pointer user-select-none hover-dark" style="width: 120px;" onclick={() => toggleSort('status')}>
-															<div class="d-flex align-items-center justify-content-center gap-1">
-																STATUS
-																{#if sortColumn === 'status'}
-																	<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
-																{/if}
-															</div>
-														</th>
-														<th class="text-end pe-3" style="width: 140px;">DEALS</th>
-													</tr>
-												</thead>
-												<tbody>
-													{#each filteredContacts as contact (contact.id)}
-														{@const palette = getAvatarPalette(contact.name || '')}
-														{@const isContactExpanded = !!expandedContacts[contact.id]}
-														{@const deficitDays = 30 - (contact.totalWorkedDays || 0)}
-														<tr class={!contact.isSuccessful ? 'row-warning-light' : 'row-normal'}>
-															<!-- ID -->
-															<td class="ps-3 fw-bold text-primary text-xs">
-																<a href="{CONTACT_BASE_URL}{contact.id}/" target="_blank" class="text-decoration-none fw-semibold">
-																	#{contact.id}
-																</a>
-															</td>
+										<div class="d-flex align-items-center gap-2 flex-wrap">
+											{#if group.recruiterId !== 'Unassigned'}
+												{@const groupPayouts = periodPayouts.filter((p) => p.recruiterId === group.recruiterId)}
+												{#if groupPayouts.length > 0}
+													{@const groupPaidTotal = groupPayouts.reduce((s, p) => s + (Number(p.payoutValue) || 0), 0)}
+													<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-2 text-xs fw-bold d-inline-flex align-items-center">
+														<UIcon name="check-circle" size="6" /><span class="ms-1.5">Paid: &euro;{groupPaidTotal.toLocaleString('de-DE')}</span>
+													</span>
+												{/if}
+												<button
+													type="button"
+													class="btn btn-sm btn-outline-success rounded-pill px-3 py-2 text-xs fw-bold d-inline-flex align-items-center gap-1 shadow-xs"
+													onclick={(e) => {
+														e.stopPropagation();
+														openPaymentModal(group.recruiterId);
+													}}
+												>
+													<UIcon name="plus" size="6" />
+													<span>Add Payment</span>
+												</button>
+											{/if}
 
-															<!-- Contact Name & Avatar -->
-															<td>
-																<div class="d-flex align-items-center gap-2.5 py-1">
-																	<div class="contact-avatar-circle shadow-xs me-2" style="background-color: {palette.bg}; color: {palette.text};">
-																		{getInitials(contact.name || '')}
-																	</div>
-																	<div>
-																		<a href="{CONTACT_BASE_URL}{contact.id}/" target="_blank" class="fw-bold text-slate-900 text-decoration-none hover-primary text-sm">
-																			{contact.name || 'Unnamed Candidate'}
-																		</a>
-																	</div>
-																</div>
-															</td>
+											<span class="badge rounded-pill bg-success text-white px-3 py-2 text-xs fw-bold shadow-xs d-inline-flex align-items-center">
+												<UIcon name="check" size="6" /><span class="ms-2">{group.totalSuccessful} / {group.totalStarted} Passed</span>
+											</span>
 
-															<!-- Placement Firm / Project -->
-															<td>
-																<span class="badge bg-slate-100 text-slate-700 border rounded-pill px-2.5 py-1 text-2xs fw-medium">
-																	{getPlacementName(contact)}
-																</span>
-															</td>
-
-															<!-- Total Worked Days -->
-															<td class="text-center">
-																{#if contact.isSuccessful}
-																	<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 text-xs fw-bold">
-																		• {contact.totalWorkedDays} days
-																	</span>
-																{:else}
-																	<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 text-xs fw-bold">
-																		• {contact.totalWorkedDays} days
-																	</span>
-																{/if}
-															</td>
-
-															<!-- Eval Period Days -->
-															<td class="text-center text-secondary text-xs fw-medium small">
-																{contact.totalWorkedDaysEval} days
-															</td>
-
-															<!-- Status Badge -->
-															<td class="text-center">
-																{#if contact.isSuccessful}
-																	<span class="badge rounded-pill bg-success text-white px-2.5 py-1 text-xs fw-bold d-inline-flex align-items-center shadow-xs">
-																		<UIcon name="check" size="7" /><span class="ms-2">Passed</span>
-																	</span>
-																{:else}
-																	<span class="badge rounded-pill bg-danger text-white px-2.5 py-1 text-xs fw-bold d-inline-flex align-items-center shadow-xs">
-																		<UIcon name="cross" size="7" /><span class="ms-2">Failed</span>
-																	</span>
-																{/if}
-															</td>
-
-															<!-- Deals Toggle Button -->
-															<td class="text-end pe-3">
-																<button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 text-xs fw-semibold hover-shadow d-inline-flex align-items-center gap-1.5 {isContactExpanded ? 'active-deal-btn' : ''}" onclick={() => toggleExpandContact(contact.id)}>
-																	<span class="me-2">{isContactExpanded ? 'Hide' : 'Show'} ({contact.deals?.length || 0})</span>
-																	<UIcon name={isContactExpanded ? 'angle-up' : 'angle-down'} size="7" />
-																</button>
-															</td>
-														</tr>
-
-														<!-- Nested Deals Details Panel -->
-														{#if isContactExpanded}
-															<tr class="deals-expanded-row">
-																<td colspan="7" class="p-3 bg-slate-50">
-																	<div class="card deals-detail-panel shadow-xs border-indigo-subtle rounded-3 overflow-hidden">
-																		<!-- Header -->
-																		<div class="card-header bg-white py-2.5 px-3 border-bottom border-indigo-subtle d-flex flex-wrap align-items-center justify-content-between gap-2">
-																			<div class="d-flex align-items-center">
-																				<UIcon name="briefcase" size="6" class="text-primary" />
-																				<span class="ms-2 fw-bold text-xs tracking-wider text-slate-800 text-uppercase">
-																					DEALS &amp; ENGAGEMENT HISTORY FOR <span class="text-primary">{contact.name || 'CANDIDATE'}</span>
-																				</span>
-																			</div>
-																			<div class="text-xs text-secondary">
-																				Active Projects: <strong class="text-slate-800">{contact.deals?.length || 0} Accounts</strong> | Total Window Days:
-																				<strong class={contact.isSuccessful ? 'text-success' : 'text-danger'}>
-																					{contact.totalWorkedDays} / 30 Days
-																				</strong>
-																			</div>
-																		</div>
-
-																		<!-- Table -->
-																		<div class="table-responsive bg-white">
-																			<table class="table table-sm align-middle mb-0 nested-deals-table">
-																				<thead class="table-light text-2xs text-muted text-uppercase">
-																					<tr>
-																						<th class="ps-3 py-2" style="width: 100px;">Deal ID</th>
-																						<th class="py-2">Client Project</th>
-																						<th class="py-2 text-center" style="width: 120px;">Work Start</th>
-																						<th class="py-2 text-center" style="width: 120px;">Work End</th>
-																						<th class="py-2 text-center" style="width: 100px;">Days Total</th>
-																						<th class="py-2 text-center" style="width: 100px;">Days Eval</th>
-																						<th class="py-2 text-center pe-3" style="width: 130px;">Approval Status</th>
-																					</tr>
-																				</thead>
-																				<tbody>
-																					{#each contact.deals as deal (deal.id)}
-																						{@const pName = deal.projectId && projectOptions[deal.projectId] ? projectOptions[deal.projectId] : deal.title}
-																						<tr>
-																							<td class="ps-3 py-2 fw-bold text-xs">
-																								<a href="{DEAL_BASE_URL}{deal.id}/" target="_blank" class="text-decoration-none">
-																									#{deal.id}
-																								</a>
-																							</td>
-																							<td class="py-2">
-																								<div class="fw-semibold text-slate-800 text-xs">{pName}</div>
-																								{#if deal.title && deal.title !== pName}
-																									<div class="text-muted text-2xs">{deal.title}</div>
-																								{/if}
-																							</td>
-																							<td class="py-2 text-center text-xs text-secondary">
-																								{dayjs(deal.workStart).format('DD.MM.YYYY')}
-																							</td>
-																							<td class="py-2 text-center text-xs">
-																								{#if deal.workEnd}
-																									<span class="text-secondary">{dayjs(deal.workEnd).format('DD.MM.YYYY')}</span>
-																								{:else}
-																									<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis fw-bold text-2xs px-2 py-0.5"> Present </span>
-																								{/if}
-																							</td>
-																							<td class="py-2 text-center fw-bold text-xs text-slate-800">
-																								{deal.days}
-																							</td>
-																							<td class="py-2 text-center text-xs text-secondary small">
-																								{deal.evalDays}
-																							</td>
-																							<td class="py-2 text-center pe-3">
-																								{#if contact.isSuccessful || deal.days >= 30}
-																									<span class="text-success text-2xs fw-bold d-inline-flex align-items-center">
-																										<UIcon name="check" size="6" /><span class="ms-2">Signed Off</span>
-																									</span>
-																								{:else}
-																									<span class="text-warning-emphasis text-2xs fw-bold d-inline-flex align-items-center">
-																										<span class="status-dot-sm bg-warning"></span><span class="ms-2">In Progress</span>
-																									</span>
-																								{/if}
-																							</td>
-																						</tr>
-																					{/each}
-																				</tbody>
-																			</table>
-																		</div>
-
-																		<!-- Warning Box if not successful -->
-																		{#if !contact.isSuccessful}
-																			<div class="p-2.5 bg-warning-subtle border-top border-warning-subtle d-flex flex-wrap align-items-center justify-content-between gap-2">
-																				<div class="d-flex align-items-center text-warning-emphasis text-xs">
-																					<UIcon name="exclamation" size="6" />
-																					<span class="ms-2">
-																						Short by <strong>{deficitDays} day(s)</strong> ({contact.totalWorkedDays}/30). Needs manual supervisor sign-off or overtime adjustment to qualify for {selectedMonthLabel} bonus.
-																					</span>
-																				</div>
-																				<a href="{CONTACT_BASE_URL}{contact.id}/" target="_blank" class="btn btn-sm btn-link text-warning-emphasis text-decoration-none fw-bold p-0 text-xs hover-underline"> Request Audit Override &rarr; </a>
-																			</div>
-																		{/if}
-																	</div>
-																</td>
-															</tr>
-														{/if}
-													{:else}
-														<tr>
-															<td colspan="7" class="text-center py-4 text-muted small"> No contacts match the filter criteria. </td>
-														</tr>
-													{/each}
-												</tbody>
-											</table>
+											<button
+												type="button"
+												class="ms-2 btn btn-light btn-sm rounded-circle d-flex align-items-center justify-content-center p-2 text-slate-600 border hover-bg-slate-100"
+												style="width: 34px; height: 34px;"
+												onclick={(e) => {
+													e.stopPropagation();
+													toggleExpandRecruiter(group.recruiterId, index);
+												}}
+												aria-label={isExpanded ? 'Collapse recruiter' : 'Expand recruiter'}
+											>
+												<UIcon name={isExpanded ? 'angle-up' : 'angle-down'} size="6" class="m-0" />
+											</button>
 										</div>
 									</div>
-								{/if}
-							</div>
-						{/each}
-					</div>
 
-					<!-- FOOTER PAGINATION & AUDIT STATUS -->
-					<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-4 pt-3 border-top border-slate-200">
-						<div class="text-secondary text-xs">
-							Showing <strong class="text-slate-800">{aggregated.length}</strong> recruiter unit(s) evaluated
+									<!-- Collapsible Body -->
+									{#if isExpanded}
+										<div class="card-body p-0 border-top border-slate-200 bg-white" transition:slide>
+											<!-- Table Filter & Search Controls Toolbar -->
+											<div class="px-3 py-2.5 bg-slate-50 border-bottom border-slate-200 d-flex flex-wrap align-items-center justify-content-between gap-2">
+												<div class="position-relative recruiter-table-search">
+													<i class="fi fi-rr-search position-absolute text-muted table-search-icon"></i>
+													<input type="text" class="form-control form-control-sm ps-4 rounded-3 text-xs bg-white border-slate-200" placeholder="Search contact or name or ID..." value={recruiterSearch[group.recruiterId] || ''} oninput={(e) => (recruiterSearch[group.recruiterId] = (e.target as HTMLInputElement).value)} />
+												</div>
+
+												<div class="d-flex align-items-center gap-2">
+													<span class="text-xs text-secondary fw-semibold me-1">Filter:</span>
+													<div class="btn-group btn-group-sm shadow-xs rounded-pill p-0.5 bg-white border gap-2" role="group">
+														<button type="button" class="btn btn-sm rounded-pill px-2.5 py-0.5 text-xs fw-semibold {activeFilter === 'all' ? 'btn-primary' : 'btn-light text-secondary'}" onclick={() => (recruiterStatusFilter[group.recruiterId] = 'all')}>
+															All ({group.contacts.length})
+														</button>
+														<button type="button" class="btn btn-sm rounded-pill px-2.5 py-0.5 text-xs fw-semibold {activeFilter === 'passed' ? 'btn-success text-white' : 'btn-light text-secondary'}" onclick={() => (recruiterStatusFilter[group.recruiterId] = 'passed')}>
+															Passed ({group.totalSuccessful})
+														</button>
+														<button type="button" class="btn btn-sm rounded-pill px-2.5 py-0.5 text-xs fw-semibold {activeFilter === 'failed' ? 'btn-danger text-white' : 'btn-light text-secondary'}" onclick={() => (recruiterStatusFilter[group.recruiterId] = 'failed')}>
+															Failed ({group.totalStarted - group.totalSuccessful})
+														</button>
+													</div>
+												</div>
+											</div>
+
+											<!-- Contacts Data Table -->
+											<div class="table-responsive">
+												<table class="table align-middle mb-0 custom-contacts-table">
+													<thead>
+														<tr>
+															<th class="ps-3 cursor-pointer user-select-none hover-dark" style="width: 80px;" onclick={() => toggleSort('id')}>
+																<div class="d-flex align-items-center gap-1">
+																	ID
+																	{#if sortColumn === 'id'}
+																		<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
+																	{/if}
+																</div>
+															</th>
+															<th class="cursor-pointer user-select-none hover-dark" onclick={() => toggleSort('name')}>
+																<div class="d-flex align-items-center gap-1">
+																	CONTRACTOR NAME
+																	{#if sortColumn === 'name'}
+																		<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
+																	{/if}
+																</div>
+															</th>
+															<th class="cursor-pointer user-select-none hover-dark" onclick={() => toggleSort('placement')}>
+																<div class="d-flex align-items-center gap-1">
+																	PROJECT
+																	{#if sortColumn === 'placement'}
+																		<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
+																	{/if}
+																</div>
+															</th>
+															<th class="text-center cursor-pointer user-select-none hover-dark" style="width: 160px;" onclick={() => toggleSort('totalWorkedDays')}>
+																<div class="d-flex align-items-center justify-content-center gap-1">
+																	<TooltipText text="TOTAL WORKED DAYS" hoverText="Sum of worked days across all deals. Target &ge; 30 days to qualify for commission." placement="top" />
+																	{#if sortColumn === 'totalWorkedDays'}
+																		<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
+																	{/if}
+																</div>
+															</th>
+															<th class="text-center cursor-pointer user-select-none hover-dark" style="width: 140px;" onclick={() => toggleSort('evalPeriodDays')}>
+																<div class="d-flex align-items-center justify-content-center gap-1">
+																	<TooltipText text="EVAL PERIOD DAYS" hoverText="Worked days evaluated strictly in the 2-month qualifying window." placement="top" />
+																	{#if sortColumn === 'evalPeriodDays'}
+																		<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
+																	{/if}
+																</div>
+															</th>
+															<th class="text-center cursor-pointer user-select-none hover-dark" style="width: 120px;" onclick={() => toggleSort('status')}>
+																<div class="d-flex align-items-center justify-content-center gap-1">
+																	STATUS
+																	{#if sortColumn === 'status'}
+																		<UIcon name={sortDirection === 'asc' ? 'caret-up' : 'caret-down'} size="7" />
+																	{/if}
+																</div>
+															</th>
+															<th class="text-end pe-3" style="width: 140px;">DEALS</th>
+														</tr>
+													</thead>
+													<tbody>
+														{#each filteredContacts as contact (contact.id)}
+															{@const palette = getAvatarPalette(contact.name || '')}
+															{@const isContactExpanded = !!expandedContacts[contact.id]}
+															{@const deficitDays = 30 - (contact.totalWorkedDays || 0)}
+															<tr class={!contact.isSuccessful ? 'row-warning-light' : 'row-normal'}>
+																<!-- ID -->
+																<td class="ps-3 fw-bold text-primary text-xs">
+																	<a href="{CONTACT_BASE_URL}{contact.id}/" target="_blank" class="text-decoration-none fw-semibold">
+																		#{contact.id}
+																	</a>
+																</td>
+
+																<!-- Contact Name & Avatar -->
+																<td>
+																	<div class="d-flex align-items-center gap-2.5 py-1">
+																		<div class="contact-avatar-circle shadow-xs me-2" style="background-color: {palette.bg}; color: {palette.text};">
+																			{getInitials(contact.name || '')}
+																		</div>
+																		<div>
+																			<a href="{CONTACT_BASE_URL}{contact.id}/" target="_blank" class="fw-bold text-slate-900 text-decoration-none hover-primary text-sm">
+																				{contact.name || 'Unnamed Candidate'}
+																			</a>
+																		</div>
+																	</div>
+																</td>
+
+																<!-- Placement Firm / Project -->
+																<td>
+																	<span class="badge bg-slate-100 text-slate-700 border rounded-pill px-2.5 py-1 text-2xs fw-medium">
+																		{getPlacementName(contact)}
+																	</span>
+																</td>
+
+																<!-- Total Worked Days -->
+																<td class="text-center">
+																	{#if contact.isSuccessful}
+																		<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 text-xs fw-bold">
+																			• {contact.totalWorkedDays} days
+																		</span>
+																	{:else}
+																		<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 text-xs fw-bold">
+																			• {contact.totalWorkedDays} days
+																		</span>
+																	{/if}
+																</td>
+
+																<!-- Eval Period Days -->
+																<td class="text-center text-secondary text-xs fw-medium small">
+																	{contact.totalWorkedDaysEval} days
+																</td>
+
+																<!-- Status Badge -->
+																<td class="text-center">
+																	{#if contact.isSuccessful}
+																		<span class="badge rounded-pill bg-success text-white px-2.5 py-1 text-xs fw-bold d-inline-flex align-items-center shadow-xs">
+																			<UIcon name="check" size="7" /><span class="ms-2">Passed</span>
+																		</span>
+																	{:else}
+																		<span class="badge rounded-pill bg-danger text-white px-2.5 py-1 text-xs fw-bold d-inline-flex align-items-center shadow-xs">
+																			<UIcon name="cross" size="7" /><span class="ms-2">Failed</span>
+																		</span>
+																	{/if}
+																</td>
+
+																<!-- Deals Toggle Button -->
+																<td class="text-end pe-3">
+																	<button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 text-xs fw-semibold hover-shadow d-inline-flex align-items-center gap-1.5 {isContactExpanded ? 'active-deal-btn' : ''}" onclick={() => toggleExpandContact(contact.id)}>
+																		<span class="me-2">{isContactExpanded ? 'Hide' : 'Show'} ({contact.deals?.length || 0})</span>
+																		<UIcon name={isContactExpanded ? 'angle-up' : 'angle-down'} size="7" />
+																	</button>
+																</td>
+															</tr>
+
+															<!-- Nested Deals Details Panel -->
+															{#if isContactExpanded}
+																<tr class="deals-expanded-row">
+																	<td colspan="7" class="p-3 bg-slate-50">
+																		<div class="card deals-detail-panel shadow-xs border-indigo-subtle rounded-3 overflow-hidden">
+																			<!-- Header -->
+																			<div class="card-header bg-white py-2.5 px-3 border-bottom border-indigo-subtle d-flex flex-wrap align-items-center justify-content-between gap-2">
+																				<div class="d-flex align-items-center">
+																					<UIcon name="briefcase" size="6" class="text-primary" />
+																					<span class="ms-2 fw-bold text-xs tracking-wider text-slate-800 text-uppercase">
+																						DEALS &amp; ENGAGEMENT HISTORY FOR <span class="text-primary">{contact.name || 'CANDIDATE'}</span>
+																					</span>
+																				</div>
+																				<div class="text-xs text-secondary">
+																					Active Projects: <strong class="text-slate-800">{contact.deals?.length || 0} Accounts</strong> | Total Window Days:
+																					<strong class={contact.isSuccessful ? 'text-success' : 'text-danger'}>
+																						{contact.totalWorkedDays} / 30 Days
+																					</strong>
+																				</div>
+																			</div>
+
+																			<!-- Table -->
+																			<div class="table-responsive bg-white">
+																				<table class="table table-sm align-middle mb-0 nested-deals-table">
+																					<thead class="table-light text-2xs text-muted text-uppercase">
+																						<tr>
+																							<th class="ps-3 py-2" style="width: 100px;">Deal ID</th>
+																							<th class="py-2">Client Project</th>
+																							<th class="py-2 text-center" style="width: 120px;">Work Start</th>
+																							<th class="py-2 text-center" style="width: 120px;">Work End</th>
+																							<th class="py-2 text-center" style="width: 100px;">Days Total</th>
+																							<th class="py-2 text-center" style="width: 100px;">Days Eval</th>
+																							<th class="py-2 text-center pe-3" style="width: 130px;">Approval Status</th>
+																						</tr>
+																					</thead>
+																					<tbody>
+																						{#each contact.deals as deal (deal.id)}
+																							{@const pName = deal.projectId && projectOptions[deal.projectId] ? projectOptions[deal.projectId] : deal.title}
+																							<tr>
+																								<td class="ps-3 py-2 fw-bold text-xs">
+																									<a href="{DEAL_BASE_URL}{deal.id}/" target="_blank" class="text-decoration-none">
+																										#{deal.id}
+																									</a>
+																								</td>
+																								<td class="py-2">
+																									<div class="fw-semibold text-slate-800 text-xs">{pName}</div>
+																									{#if deal.title && deal.title !== pName}
+																										<div class="text-muted text-2xs">{deal.title}</div>
+																									{/if}
+																								</td>
+																								<td class="py-2 text-center text-xs text-secondary">
+																									{dayjs(deal.workStart).format('DD.MM.YYYY')}
+																								</td>
+																								<td class="py-2 text-center text-xs">
+																									{#if deal.workEnd}
+																										<span class="text-secondary">{dayjs(deal.workEnd).format('DD.MM.YYYY')}</span>
+																									{:else}
+																										<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis fw-bold text-2xs px-2 py-0.5"> Present </span>
+																									{/if}
+																								</td>
+																								<td class="py-2 text-center fw-bold text-xs text-slate-800">
+																									{deal.days}
+																								</td>
+																								<td class="py-2 text-center text-xs text-secondary small">
+																									{deal.evalDays}
+																								</td>
+																								<td class="py-2 text-center pe-3">
+																									{#if contact.isSuccessful || deal.days >= 30}
+																										<span class="text-success text-2xs fw-bold d-inline-flex align-items-center">
+																											<UIcon name="check" size="6" /><span class="ms-2">Signed Off</span>
+																										</span>
+																									{:else}
+																										<span class="text-warning-emphasis text-2xs fw-bold d-inline-flex align-items-center">
+																											<span class="status-dot-sm bg-warning"></span><span class="ms-2">In Progress</span>
+																										</span>
+																									{/if}
+																								</td>
+																							</tr>
+																						{/each}
+																					</tbody>
+																				</table>
+																			</div>
+
+																			<!-- Warning Box if not successful -->
+																			{#if !contact.isSuccessful}
+																				<div class="p-2.5 bg-warning-subtle border-top border-warning-subtle d-flex flex-wrap align-items-center justify-content-between gap-2">
+																					<div class="d-flex align-items-center text-warning-emphasis text-xs">
+																						<UIcon name="exclamation" size="6" />
+																						<span class="ms-2">
+																							Short by <strong>{deficitDays} day(s)</strong> ({contact.totalWorkedDays}/30). Needs manual supervisor sign-off or overtime adjustment to qualify for {selectedMonthLabel} bonus.
+																						</span>
+																					</div>
+																					<a href="{CONTACT_BASE_URL}{contact.id}/" target="_blank" class="btn btn-sm btn-link text-warning-emphasis text-decoration-none fw-bold p-0 text-xs hover-underline"> Request Audit Override &rarr; </a>
+																				</div>
+																			{/if}
+																		</div>
+																	</td>
+																</tr>
+															{/if}
+														{:else}
+															<tr>
+																<td colspan="7" class="text-center py-4 text-muted small"> No contacts match the filter criteria. </td>
+															</tr>
+														{/each}
+													</tbody>
+												</table>
+											</div>
+										</div>
+									{/if}
+								</div>
+							{/each}
 						</div>
 
-						<div class="d-flex align-items-center gap-1">
-							<button type="button" class="btn btn-sm btn-light border text-slate-500 rounded-3 text-xs px-2.5 py-1" disabled> Previous </button>
-							<button type="button" class="btn btn-sm btn-primary rounded-3 text-xs px-2.5 py-1 fw-bold"> 1 </button>
-							<button type="button" class="btn btn-sm btn-light border text-slate-500 rounded-3 text-xs px-2.5 py-1" disabled> Next </button>
+						<!-- FOOTER PAGINATION & AUDIT STATUS -->
+						<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-4 pt-3 border-top border-slate-200">
+							<div class="text-secondary text-xs">
+								Showing <strong class="text-slate-800">{aggregated.length}</strong> recruiter unit(s) evaluated
+							</div>
+
+							<div class="d-flex align-items-center gap-1">
+								<button type="button" class="btn btn-sm btn-light border text-slate-500 rounded-3 text-xs px-2.5 py-1" disabled> Previous </button>
+								<button type="button" class="btn btn-sm btn-primary rounded-3 text-xs px-2.5 py-1 fw-bold"> 1 </button>
+								<button type="button" class="btn btn-sm btn-light border text-slate-500 rounded-3 text-xs px-2.5 py-1" disabled> Next </button>
+							</div>
 						</div>
 					</div>
 				{/if}
@@ -1365,7 +1368,6 @@
 
 	/* Periods Sidebar */
 	.period-sidebar-card {
-		border-radius: 14px;
 		background: #ffffff;
 	}
 
