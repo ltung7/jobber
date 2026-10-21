@@ -75,6 +75,12 @@ export const processDocusignWebhook = async (payload: DocusignWebhookEvent<[Even
         const status = payload.data?.envelopeSummary?.status || payload.event;
         const recipientName = payload.data?.envelopeSummary?.emailSubject || '';
         await slackMessage(`📨 *DocuSign Webhook Hit*: \`${payload.event}\` | Status: *${status}* | Envelope: \`${envelopeId}\` ${recipientName ? `(${recipientName})` : ''}`);
+
+        // If parsed from raw XML or undefined, dump snippet to Slack for diagnostic inspection
+        if ((payload as any)._rawXmlSnippet || !payload.event || payload.event === 'undefined' || envelopeId === 'unknown') {
+            const dumpText = (payload as any)._rawXmlSnippet || JSON.stringify(payload).slice(0, 800);
+            await slackMessage(`🔍 *DocuSign Payload Snippet*:\n\`\`\`${dumpText}\`\`\``);
+        }
     } catch (e) {
         console.error('Failed to send Slack webhook hit notification:', e);
     }

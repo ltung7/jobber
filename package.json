@@ -1,12 +1,12 @@
 {
 	"name": "juliette",
 	"private": true,
-	"version": "0.0.26",
+	"version": "0.0.29",
 	"type": "module",
 	"scripts": {
-		"dev": "vite dev",
+		"dev": "vite dev --port 5173",
 		"build": "vite build",
-		"preview": "vite preview",
+		"preview": "vite preview --port 5173",
 		"deploy": "vite build && node build.js && gcloud app deploy build/app.yaml --project=eisg-fleet && npm --no-git-tag-version version patch",
 		"redeploy": "gcloud app deploy build/app.yaml --project=eisg-fleet",
 		"prepare": "svelte-kit sync || echo ''",

@@ -221,8 +221,10 @@
 4. **Sequential vs Concurrent Signer Delivery:**
    - Clarified DocuSign routing order behavior (`routingOrder: '1'` vs `'2'`) where the second recipient only receives an email after the first completes signing.
 
-5. **Webhook Investigation & Configuration:**
-   - Analyzed why webhooks didn't trigger (missing envelope-level `eventNotification` and reliance on DocuSign Admin Connect settings with local endpoints).
+5. **Webhook Isolation & XML/JSON Dual-Mode Parsing:**
+   - Added per-envelope `eventNotification` pointing to `https://manager.eisg.pl/api/docusign/webhook` (with SIM JSON v2.1 event data format) so this service's webhooks remain isolated from other services sharing the same DocuSign account.
+   - Added robust XML fallback and `fast-xml-parser` support in `src/routes/api/docusign/webhook/+server.ts` to prevent `SyntaxError` crashes on incoming DocuSign XML Connect messages.
+   - Integrated automatic Slack notifications (`slackMessage`) whenever a DocuSign webhook is received.
 
 6. **Canvas PDF Anchor Search Limitations & Coordinate-Based Signing:**
    - Diagnosed why DocuSign anchors (`\s1\`, `\s2\`) allowed recipients to "sign anywhere": because `html2canvas` rasterizes text into JPEG/PNG image slices, DocuSign's OCR/text-search engine could not find the text strings in the PDF stream.
@@ -231,22 +233,17 @@
    - Adjusted coordinates to align signature boxes right on top of the signature lines.
 
 7. **Local Manual Testing Box Renderer (`SIGN_TEST`):**
-   - Implemented `SIGN_TEST = true || isDev` in `docusign.service.ts` with `pdf-lib`.
+   - Implemented `SIGN_TEST = false && isDev` in `docusign.service.ts` with `pdf-lib`.
    - When active, draws visual bounding boxes representing the exact coordinates for the left and right signer onto the target page of `/tmp/contract.pdf` for verification before live envelope dispatch.
+
+8. **Custom Sender / Reply-To Override:**
+   - Added `emailSettings` with `replyEmailAddressOverride` and `replyEmailNameOverride` in `sendEnvelope` so sent envelopes reflect the correct Contractor company sender info instead of default demo account details.
 
 ---
 
-### Verification Criteria
-
-1. **TypeScript & Svelte Compilation Check:**
-   ```bash
-   npm run check
-   ```
-2. **Production Build Verification:**
-   ```bash
-   npm run build
-   ```
-3. **Functional Verification Steps:**
-   - **NIP Lookup:** Call `GET /contracts/api/nip?nip=5252637218` (or click "Download by NIP" in `ContractorModal.svelte`) and verify it populates `EISG Sp. z o.o.`, KRS `0000588661`, REGON, and Warsaw address from `wl-api.mf.gov.pl`.
-   - **Recruiter List Creation:** Create a Contractee or send an envelope with Recruiter set to `"create_new"` and verify a new enumeration option is appended to Bitrix Contact field `UF_CRM_1790672831151` (not a new CRM Contact) and its enum `ID` is stored in `recruiterId`.
-   - **Recruiter Envelope Retrieval:** Query `GET /contracts/api/envelopes?recruiterId=<enumId>` and verify both signed (`completed`/`signed`) and unsigned (`sent`/`delivered`/`declined`) envelopes for that recruiter are returned and displayed in the `/contracts` UI.
+### Summary of Remaining Steps
+- **Testing & Verification:**
+  - **Bitrix Integration Testing:** Verify that selecting **"create new"** for a Recruiter correctly appends the new option to the Bitrix Contact custom enumeration field (`UF_CRM_1790672831151`) via `bitrixService.addRecruiterEnumOption` and assigns the new ID to the dispatched envelope/contractee without creating duplicate CRM contact records.
+- **Optional Extensions:**
+  - Add periodic automated polling cron or scheduled check for pending DocuSign envelopes if webhook delivery fails on specific server environments.
+  - Expand notification templates (e.g. email/SMS alerts to recommenders upon signature completion).

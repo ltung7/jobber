@@ -68,6 +68,10 @@ export interface SendEnvelopeParameters {
     leftCoords?: Coordinates;
     rightCoords?: Coordinates;
     webhookUrl?: string;
+    replyTo?: {
+        name: string;
+        email: string;
+    };
 }
 
 function parsePhoneNumber(rawPhone?: string, countryCode?: string): { countryCode: string; number: string } | null {
@@ -184,7 +188,8 @@ export async function sendEnvelope({
     useAnchor = true,
     leftCoords,
     rightCoords,
-    webhookUrl = 'https://manager.eisg.pl/api/docusign/webhook'
+    webhookUrl = 'https://manager.eisg.pl/api/docusign/webhook',
+    replyTo
 }: SendEnvelopeParameters) {
     if (SIGN_TEST) {
         console.log({ leftCoords, rightCoords })
@@ -221,6 +226,13 @@ export async function sendEnvelope({
         status: 'sent',
     };
 
+    if (replyTo?.email) {
+        envelopeDefinition.emailSettings = {
+            replyEmailAddressOverride: replyTo.email,
+            replyEmailNameOverride: replyTo.name || replyTo.email
+        };
+    }
+
     if (carbonCopies && carbonCopies.length > 0) {
         const ccSigners: CarbonCopy[] = carbonCopies.map((cc, idx) => ({
             email: cc.email,
@@ -247,9 +259,13 @@ export async function sendEnvelope({
             url: webhookUrl,
             loggingEnabled: 'true',
             requireAcknowledgment: 'true',
+            eventData: {
+                version: 'restv2.1',
+                format: 'json',
+                includeData: ['custom_fields', 'recipients', 'tabs']
+            },
             useSoapInterface: 'false',
             includeCertificateWithSoap: 'false',
-            signHashWithCert: 'false',
             includeDocuments: 'false',
             includeEnvelopeVoidReason: 'true',
             includeTimeZone: 'true',

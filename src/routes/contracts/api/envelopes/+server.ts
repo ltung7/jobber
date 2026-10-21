@@ -150,6 +150,10 @@ export const POST = async ({ request }: RequestEvent) => {
             page: totalPages || 1,
             leftCoords,
             rightCoords,
+            replyTo: sender?.email ? {
+                name: sender.name || 'EISG Sp. z o.o.',
+                email: sender.email
+            } : undefined,
             leftSigner: sender?.name ? {
                 name: sender.name,
                 email: sender.email || 'biuro@eisg.pl',

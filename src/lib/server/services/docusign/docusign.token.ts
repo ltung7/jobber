@@ -25,10 +25,18 @@ export async function getDocusignAccessToken(): Promise<string> {
         return cachedToken.accessToken;
     }
 
+    if (!env.EC_SECRET) {
+        throw new Error('Missing EC_SECRET environment variable required to decrypt DocuSign private key');
+    }
+    if (!DS_CLIENT_ID || !DS_USER_ID) {
+        throw new Error(`Missing DocuSign credentials: DS_CLIENT_ID=${Boolean(DS_CLIENT_ID)}, DS_USER_ID=${Boolean(DS_USER_ID)}`);
+    }
+
     const apiClient = new docusign.ApiClient();
     apiClient.setOAuthBasePath(OAUTH_BASE_PATH);
 
-    const privateKey = Buffer.from([ '-----BEGIN RSA PRIVATE KEY-----\n', '\n-----END RSA PRIVATE KEY-----' ].join(decrypt(ENCRYPTED)));
+    const decryptedKey = decrypt(ENCRYPTED);
+    const privateKey = Buffer.from([ '-----BEGIN RSA PRIVATE KEY-----\n', '\n-----END RSA PRIVATE KEY-----' ].join(decryptedKey));
 
     const results = await apiClient.requestJWTUserToken(
         DS_CLIENT_ID,
