@@ -7,6 +7,7 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
+/dist-mcp
 /out
 .graphify
 
@@ -31,3 +32,4 @@ app.yaml
 *.temp.ts
 *.old.*
 *-old
+todo.txt

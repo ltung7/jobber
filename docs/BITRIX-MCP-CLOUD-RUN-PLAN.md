@@ -104,13 +104,15 @@ Furthermore, the `expiring_documents(days)` high-level MCP tool will check **bot
 
 ## 2. Context & Architecture Decisions
 
-### 2.1. Hosting & Deployment Architecture (Google Cloud Run + `bitrix.eisg.pl`)
-- **Why Integrated in Repository + Deployed to Cloud Run:**
-  - The workspace (`C:\xampp\htdocs\juliette`) is a SvelteKit (`@sveltejs/kit` v2.34, Node 24) project already configured for GCP project `eisg-fleet` with `firebase-admin` (`src/lib/server/db/firebase/firebase.ts`) and Bitrix utilities (`src/lib/bitrix/`).
-  - By adding `@modelcontextprotocol/sdk` (Streamable HTTP transport via Web Standard `Request`/`Response` or Node HTTP handler) and exposing the MCP routes under `/mcp` (plus `/mcp/[token]` for URL-token authentication and `/.well-known/oauth-authorization-server` + `/oauth/*` for Claude Custom Connector OAuth compatibility), we can deploy the container directly to **Google Cloud Run** (`service: bitrix-mcp`, region: `europe-central2` Warsaw or `europe-west1` Belgium) and bind it to `https://bitrix.eisg.pl`.
+### 2.1. Hosting & Deployment Architecture (Minimal Standalone MCP Runner on Google Cloud Run `europe-central2` + `bitrix.eisg.pl`)
+- **Why Minimal Standalone Runner (Not the Whole SvelteKit Project):**
+  - Instead of building or shipping the entire SvelteKit web application into the Cloud Run container, we use a dedicated **minimal standalone MCP runner** (`src/mcp-runner.ts`) compiled via `esbuild` (`scripts/build-mcp-runner.mjs`) into a single **~38 KB ESM bundle (`dist-mcp/server.mjs`)**.
+  - `Dockerfile.mcp` copies **only** `src/mcp-runner.ts`, `src/lib/server/mcp/bitrix/*`, and the Firestore audit logger (`src/lib/server/db/firebase/bitrixMcpLog.fdb.ts` + `firebase.ts`). It does **not** copy `src/routes`, `src/components`, `static`, or run `vite build`.
+  - The production container installs **only 4 runtime dependencies** (`@modelcontextprotocol/sdk`, `axios`, `firebase-admin`, `zod`) and exposes **only** the MCP & OAuth endpoints (`/mcp`, `/mcp/:token`, `/.well-known/oauth-authorization-server`, `/oauth/authorize`, `/oauth/token`, and `/health`).
+  - Deployed to **Google Cloud Run** (`service: bitrix-mcp`, region: **`europe-central2`** Warsaw) in GCP project `eisg-fleet` and bound to `https://bitrix.eisg.pl`.
 - **Environment Variable Strategy:**
-  - Uses `BITRIX24_WEBHOOK_URL` from `.env` (`$env/dynamic/private` or `process.env.BITRIX24_WEBHOOK_URL`), which holds the incoming Bitrix24 webhook with `crm`, `task`, `user` scopes.
-  - Uses `MCP_SECRET_TOKEN` (64-character cryptographic hex token) and `MCP_OAUTH_CLIENT_SECRET` in `.env` / Google Cloud Secret Manager.
+  - Uses `BITRIX24_WEBHOOK_URL` from `.env` (`process.env.BITRIX24_WEBHOOK_URL`), which holds the incoming Bitrix24 webhook with `crm`, `task`, `user` scopes.
+  - Uses `MCP_SECRET_TOKEN` (64-character cryptographic hex token) and `MCP_OAUTH_CLIENT_SECRET` in `.env` / Google Cloud Run environment variables.
 
 ### 2.2. Strict Read-Only Enforcement & GDPR/RODO Sanitization
 1. **Method Whitelist (`READ_ONLY_METHOD_WHITELIST`)**:
@@ -169,8 +171,9 @@ Following the exact pattern in `src/lib/server/db/firebase/template.fdb.ts`:
 12. `src/routes/oauth/authorize/+server.ts` — OAuth 2.0 authorization endpoint for Claude Custom Connector.
 13. `src/routes/oauth/token/+server.ts` — OAuth 2.0 token exchange endpoint.
 14. `scripts/bitrix-provision-fields.ts` — Standalone admin CLI script to create the missing document validity date fields on Bitrix Contacts (`crm.contact.userfield.add`) and verify their IDs.
-15. `Dockerfile.mcp` & `cloudbuild.mcp.yaml` — Container and Cloud Build configuration for deploying the MCP service to Google Cloud Run and binding `bitrix.eisg.pl`.
-16. `src/lib/server/mcp/bitrix/__tests__/mcp-bitrix.test.ts` — Unit & integration test suite verifying read-only guardrails, RODO sanitization, Firestore logging, and high-level tool calculations.
+15. `src/mcp-runner.ts` & `scripts/build-mcp-runner.mjs` — Minimal standalone Node HTTP server entry point and `esbuild` bundler producing a 38 KB standalone `dist-mcp/server.mjs` with only 4 runtime dependencies (excluding the rest of the SvelteKit app).
+16. `Dockerfile.mcp` & `cloudbuild.mcp.yaml` — Minimal container and Cloud Build configuration for deploying `dist-mcp/server.mjs` to Google Cloud Run (`europe-central2`) and binding `bitrix.eisg.pl`.
+17. `src/lib/server/mcp/bitrix/__tests__/mcp-bitrix.test.ts` — Unit & integration test suite verifying read-only guardrails, RODO sanitization, Firestore logging, and high-level tool calculations.
 
 ### Files to Edit:
 1. `package.json` — Add `@modelcontextprotocol/sdk` and `zod` dependencies, plus `mcp:provision-fields` and `mcp:deploy` scripts.
@@ -347,65 +350,65 @@ Based on the official Bitrix24 REST API documentation:
 
 ---
 
-## 5. Google Cloud Run & Subdomain (`bitrix.eisg.pl`) Binding Architecture
+## 5. Google Cloud Run (`europe-central2`) & Subdomain (`bitrix.eisg.pl`) Binding Architecture
 
-### 5.1. Cloud Run Service Configuration
+### 5.1. Cloud Run Service Configuration (Minimal Runner)
 - **GCP Project:** `eisg-fleet` (same project hosting App Engine `manage.eisg.pl` / `jobs.eisg.pl` and Firestore).
 - **Service Name:** `bitrix-mcp`
-- **Region:** `europe-west1` (Belgium) or `europe-central2` (Warsaw) — note: **Cloud Run Domain Mapping** is natively supported in `europe-west1` (Belgium) and `europe-west4`. Choosing `europe-west1` allows direct 1-command `gcloud beta run domain-mappings create --service bitrix-mcp --domain bitrix.eisg.pl --region europe-west1` with automatic Google-managed SSL certificate!
+- **Region:** **`europe-central2`** (Warsaw, Poland).
+- **Container Footprint:** Uses `Dockerfile.mcp` + `scripts/build-mcp-runner.mjs` to bundle **only** `src/mcp-runner.ts` (`37.7 KB`) and 4 runtime dependencies (`@modelcontextprotocol/sdk`, `axios`, `firebase-admin`, `zod`). No SvelteKit UI routes, components, or unrelated packages are included in the container.
 - **Service Account & Firestore Access:** Uses the default or dedicated service account in `eisg-fleet` with `roles/datastore.user` so `bitrixMcpLog.fdb.ts` writes directly to Firestore with zero extra credential files needed in Cloud Run.
 
 ### 5.2. Custom Subdomain Mapping (`bitrix.eisg.pl`)
-Because `eisg.pl` is already verified in Google Cloud Console for App Engine:
-1. Run:
+To bind `https://bitrix.eisg.pl` to the `bitrix-mcp` service in `europe-central2`:
+1. Deploy the minimal container to `europe-central2`:
    ```powershell
-   gcloud beta run domain-mappings create --service=bitrix-mcp --domain=bitrix.eisg.pl --region=europe-west1 --project=eisg-fleet
+   npm run mcp:deploy
+   # or: gcloud builds submit --config=cloudbuild.mcp.yaml --project=eisg-fleet
    ```
-2. Inspect the DNS record instructions output by GCP:
-   ```powershell
-   gcloud beta run domain-mappings describe --domain=bitrix.eisg.pl --region=europe-west1 --project=eisg-fleet
-   ```
-3. In the DNS provider for `eisg.pl`, add the `CNAME` record:
-   - **Host/Name:** `bitrix`
-   - **Type:** `CNAME`
-   - **Value/Target:** `ghs.googlehosted.com.`
-4. Google Cloud automatically provisions and renews the managed TLS/SSL certificate for `https://bitrix.eisg.pl`.
+2. Map `bitrix.eisg.pl` to the Cloud Run service:
+   - **Option A (Cloudflare / DNS Proxy or Load Balancer):** Point `bitrix.eisg.pl` via Cloudflare CNAME/Origin Rule or GCP Global External Application Load Balancer serverless NEG to the `bitrix-mcp` Cloud Run service in `europe-central2`.
+   - **Option B (Cloud Run Domain Mapping):**
+     ```powershell
+     gcloud beta run domain-mappings create --service=bitrix-mcp --domain=bitrix.eisg.pl --region=europe-central2 --project=eisg-fleet
+     ```
+     And add the `CNAME` record (`bitrix` -> `ghs.googlehosted.com.`) in the `eisg.pl` DNS zone.
 
 ---
 
 ## 6. Task Checklist
 
 ### Phase 1: Dependencies, Environment & Provisioning Script
-- [ ] **Task 1.1:** Add `@modelcontextprotocol/sdk` and `zod` to `package.json` dependencies.
-- [ ] **Task 1.2:** Update `.env` (and `.env.example`) to ensure `BITRIX24_WEBHOOK_URL`, `MCP_SECRET_TOKEN`, `MCP_OAUTH_CLIENT_ID`, and `MCP_OAUTH_CLIENT_SECRET` are defined.
-- [ ] **Task 1.3:** Create `scripts/bitrix-provision-fields.ts` to inspect `crm.contact.userfield.list` and create the missing Contact document expiration date fields via `crm.contact.userfield.add` (`UF_CRM_CONTACT_TRC_VALIDITY`, `UF_CRM_CONTACT_VISA_VALIDITY`, `UF_CRM_CONTACT_WP_VALIDITY`, `UF_CRM_CONTACT_PASSPORT_VALIDITY`, and `UF_CRM_CONTACT_REFERRER`).
+- [x] **Task 1.1:** Add `@modelcontextprotocol/sdk` and `zod` to `package.json` dependencies.
+- [x] **Task 1.2:** Update `.env` (and `.env.example`) to ensure `BITRIX24_WEBHOOK_URL`, `MCP_SECRET_TOKEN`, `MCP_OAUTH_CLIENT_ID`, and `MCP_OAUTH_CLIENT_SECRET` are defined.
+- [x] **Task 1.3:** Create `scripts/bitrix-provision-fields.ts` to inspect `crm.contact.userfield.list` and create the missing Contact document expiration date fields via `crm.contact.userfield.add` (`UF_CRM_CONTACT_TRC_VALIDITY`, `UF_CRM_CONTACT_VISA_VALIDITY`, `UF_CRM_CONTACT_WP_VALIDITY`, `UF_CRM_CONTACT_PASSPORT_VALIDITY`, and `UF_CRM_CONTACT_REFERRER`).
 
 ### Phase 2: Firestore Audit Logger (`.fdb.ts`)
-- [ ] **Task 2.1:** Create `src/lib/server/db/firebase/bitrixMcpLog.fdb.ts` modeled strictly on `src/lib/server/db/firebase/template.fdb.ts` (`setBitrixMcpLog`, `getBitrixMcpLog`, `findBitrixMcpLogs`, `addBitrixMcpLog`) using `collectionRef(accountId)`.
+- [x] **Task 2.1:** Create `src/lib/server/db/firebase/bitrixMcpLog.fdb.ts` modeled strictly on `src/lib/server/db/firebase/template.fdb.ts` (`setBitrixMcpLog`, `getBitrixMcpLog`, `findBitrixMcpLogs`, `addBitrixMcpLog`) using `collectionRef(accountId)`.
 
 ### Phase 3: Read-Only Bitrix Client & RODO Sanitizer
-- [ ] **Task 3.1:** Create `src/lib/server/mcp/bitrix/config.ts` containing the immutable `ALLOWED_BITRIX_METHODS` whitelist, `ALLOWED_CRM_ENTITY_TYPES` (`1, 2, 3`), RODO blocked field keys, user aliases (`Ramod=14`, `DK=16`, `Darya=18`, `Michał=1`), and stage/source dictionaries.
-- [ ] **Task 3.2:** Create `src/lib/server/mcp/bitrix/sanitizer.ts` with `sanitizeSelectFields(select)` and `sanitizeBitrixPayload(data)` to strip all file objects, scan URLs, `PHOTO`, `FILES`, and portal logins/passwords.
-- [ ] **Task 3.3:** Create `src/lib/server/mcp/bitrix/client.ts` implementing `callBitrixReadOnly(method, params)` and `fetchBitrixPaginatedReadOnly(method, params, maxRecords)` using `BITRIX24_WEBHOOK_URL` from `.env`, throwing `BitrixReadOnlyViolationError` on any non-whitelisted method.
+- [x] **Task 3.1:** Create `src/lib/server/mcp/bitrix/config.ts` containing the immutable `ALLOWED_BITRIX_METHODS` whitelist, `ALLOWED_CRM_ENTITY_TYPES` (`1, 2, 3`), RODO blocked field keys, user aliases (`Ramod=14`, `DK=16`, `Darya=18`, `Michał=1`), and stage/source dictionaries.
+- [x] **Task 3.2:** Create `src/lib/server/mcp/bitrix/sanitizer.ts` with `sanitizeSelectFields(select)` and `sanitizeBitrixPayload(data)` to strip all file objects, scan URLs, `PHOTO`, `FILES`, and portal logins/passwords.
+- [x] **Task 3.3:** Create `src/lib/server/mcp/bitrix/client.ts` implementing `callBitrixReadOnly(method, params)` and `fetchBitrixPaginatedReadOnly(method, params, maxRecords)` using `BITRIX24_WEBHOOK_URL` from `.env`, throwing `BitrixReadOnlyViolationError` on any non-whitelisted method.
 
 ### Phase 4: Low-Level & High-Level MCP Tools
-- [ ] **Task 4.1:** Create `src/lib/server/mcp/bitrix/tools.lowlevel.ts` registering the 9 whitelisted Bitrix tools (`crm_item_list`, `crm_item_get`, `crm_item_fields`, `crm_category_list`, `crm_status_list`, `crm_stagehistory_list`, `crm_activity_list`, `tasks_task_list`, `user_get`).
-- [ ] **Task 4.2:** Create `src/lib/server/mcp/bitrix/tools.highlevel.ts` implementing:
+- [x] **Task 4.1:** Create `src/lib/server/mcp/bitrix/tools.lowlevel.ts` registering the 9 whitelisted Bitrix tools (`crm_item_list`, `crm_item_get`, `crm_item_fields`, `crm_category_list`, `crm_status_list`, `crm_stagehistory_list`, `crm_activity_list`, `tasks_task_list`, `user_get`).
+- [x] **Task 4.2:** Create `src/lib/server/mcp/bitrix/tools.highlevel.ts` implementing:
   - `order_fill(project)`
   - `funnel_stats(from, to, source)`
   - `expiring_documents(days, includeAlreadyExpired)`
   - `overdue_tasks(person)`
   - `find_contact(query)`
-- [ ] **Task 4.3:** Create `src/lib/server/mcp/bitrix/server.ts` instantiating the `McpServer`, wrapping every tool execution with timing, error catching, RODO output sanitization, and `setBitrixMcpLog` / `addBitrixMcpLog` audit logging to Firestore.
+- [x] **Task 4.3:** Create `src/lib/server/mcp/bitrix/server.ts` instantiating the `McpServer`, wrapping every tool execution with timing, error catching, RODO output sanitization, and `setBitrixMcpLog` / `addBitrixMcpLog` audit logging to Firestore.
 
-### Phase 5: Streamable HTTP Transport & Auth Endpoints
-- [ ] **Task 5.1:** Create `src/lib/server/mcp/bitrix/auth.ts` supporting both URL secret token (`/mcp/<token>` or `?token=<token>`) and `Authorization: Bearer <token>` / OAuth 2.0 JWT verification.
-- [ ] **Task 5.2:** Create `src/routes/mcp/+server.ts` and `src/routes/mcp/[token]/+server.ts` implementing the MCP Streamable HTTP transport (`WebStandardStreamableHTTPServerTransport` from `@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js`).
-- [ ] **Task 5.3:** Create OAuth 2.0 endpoints for Claude Custom Connector (`src/routes/.well-known/oauth-authorization-server/+server.ts`, `src/routes/oauth/authorize/+server.ts`, and `src/routes/oauth/token/+server.ts`).
+### Phase 5: Streamable HTTP Transport, Minimal Standalone Runner & Auth Endpoints
+- [x] **Task 5.1:** Create `src/lib/server/mcp/bitrix/auth.ts` supporting both URL secret token (`/mcp/<token>` or `?token=<token>`) and `Authorization: Bearer <token>` / OAuth 2.0 JWT verification.
+- [x] **Task 5.2:** Create `src/mcp-runner.ts` and `scripts/build-mcp-runner.mjs` (plus SvelteKit routes `src/routes/mcp/*` and `src/routes/oauth/*` for local dev) so the production build compiles a standalone 38 KB MCP HTTP server (`dist-mcp/server.mjs`) without bundling the whole SvelteKit project.
+- [x] **Task 5.3:** Expose OAuth 2.0 endpoints for Claude Custom Connector (`/.well-known/oauth-authorization-server`, `/oauth/authorize`, and `/oauth/token`).
 
-### Phase 6: Cloud Run Deployment & Subdomain Mapping
-- [ ] **Task 6.1:** Create `Dockerfile.mcp` (Node 24 Alpine build running the SvelteKit `@sveltejs/adapter-node` build or standalone MCP server entry) and `cloudbuild.mcp.yaml`.
-- [ ] **Task 6.2:** Deploy to Google Cloud Run (`service: bitrix-mcp`, `region: europe-west1`, `project: eisg-fleet`) and map custom domain `bitrix.eisg.pl`.
+### Phase 6: Cloud Run Deployment (`europe-central2`) & Subdomain Mapping
+- [x] **Task 6.1:** Create `Dockerfile.mcp` (copying and bundling ONLY the minimal MCP runner files into `dist-mcp/server.mjs` with 4 runtime dependencies) and `cloudbuild.mcp.yaml` targeting `europe-central2`.
+- [ ] **Task 6.2:** Run `npm run mcp:deploy` to deploy to Google Cloud Run (`service: bitrix-mcp`, `region: europe-central2`, `project: eisg-fleet`) and map custom domain `bitrix.eisg.pl`.
 
 ---
 
@@ -443,3 +446,26 @@ The implementation must pass all of the following automated and manual verificat
      -H "Accept: application/json, text/event-stream" `
      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"claude-test","version":"1.0.0"}}}'
    ```
+
+
+---
+
+## 8. Client Integration Instructions (OAuth & API Key)
+
+### 8.1. API Key / Secret Token Integration (Claude Code, OpenCode, CLI, SSE Clients)
+For CLI tools, local development, Claude Code, or OpenCode, connect via the Streamable HTTP transport passing the secret token either as a Bearer header, URL query parameter, or URL path token:
+
+1. **URL Path Token:**
+   `https://bitrix.eisg.pl/mcp/a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0`
+2. **Query Parameter:**
+   `https://bitrix.eisg.pl/mcp?token=a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0`
+3. **Authorization Header:**
+   - Header name: `Authorization`
+   - Header value: `Bearer a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0`
+
+### 8.2. OAuth 2.0 Integration (Claude.ai Web / Desktop Custom Connector)
+For Claude.ai Web or Desktop Custom Connectors:
+1. In Claude Settings -> Connectors / Integrations -> Add Custom Connector.
+2. Enter Server URL: `https://bitrix.eisg.pl/mcp` (or discovery endpoint `https://bitrix.eisg.pl/.well-known/oauth-authorization-server`).
+3. Claude will initiate the OAuth flow, prompting you to enter your corporate email (`@eisg.pl` or `@finnergroup.com`).
+4. Upon successful domain validation, the access token is issued securely.

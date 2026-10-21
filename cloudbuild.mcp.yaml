@@ -1,0 +1,20 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/bitrix-mcp:latest', '-f', 'Dockerfile.mcp', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/bitrix-mcp:latest']
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'bitrix-mcp'
+      - '--image=europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/bitrix-mcp:latest'
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--min-instances=0'
+      - '--max-instances=5'
+      - '--set-env-vars=BITRIX24_WEBHOOK_URL=https://eisg.bitrix24.pl/rest/1/o0a54hervvwqx6tk/,MCP_SECRET_TOKEN=a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0,MCP_OAUTH_CLIENT_ID=eisg-bitrix-mcp-client,MCP_OAUTH_CLIENT_SECRET=eisg-bitrix-mcp-secret-key-987654321'
+images:
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/bitrix-mcp:latest'
