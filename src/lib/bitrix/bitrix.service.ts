@@ -733,6 +733,185 @@ const bitrixService = {
                 'UF_CRM_1787822368903'  // Project
             ]
         });
+    },
+
+    /**
+     * Create a new contact in Bitrix24.
+     */
+    async addContact(fields: Record<string, any>): Promise<number> {
+        const response = await client.post('crm.contact.add.json', { fields });
+        return response.data?.result;
+    },
+
+    /**
+     * Update an existing contact in Bitrix24.
+     */
+    async updateContact(id: string | number, fields: Record<string, any>): Promise<boolean> {
+        const response = await client.post('crm.contact.update.json', { id, fields });
+        return Boolean(response.data?.result);
+    },
+
+    /**
+     * Get a single contact by ID.
+     */
+    async getContact(id: string | number): Promise<BitrixContact | null> {
+        try {
+            const response = await client.post('crm.contact.get.json', { id });
+            return response.data?.result || null;
+        } catch {
+            return null;
+        }
+    },
+
+    /**
+     * Add a timeline comment to a Bitrix Contact (useful for payout tracking, contract status notes).
+     */
+    async addContactComment(contactId: string | number, comment: string): Promise<any> {
+        try {
+            const response = await client.post('crm.timeline.comment.add.json', {
+                fields: {
+                    ENTITY_ID: contactId,
+                    ENTITY_TYPE: 'contact',
+                    COMMENT: comment
+                }
+            });
+            return response.data?.result;
+        } catch (err) {
+            console.error('Failed to add contact timeline comment in Bitrix', err);
+        }
+    },
+
+    /**
+     * Search contacts by search string or name.
+     */
+    async searchContacts(searchQuery: string, limit: number = 20): Promise<BitrixContact[]> {
+        if (!searchQuery || searchQuery.trim().length === 0) return [];
+        const response = await client.post('crm.contact.list.json', {
+            filter: {
+                'SEARCH_STRING': searchQuery.trim()
+            },
+            select: [
+                'ID',
+                'NAME',
+                'LAST_NAME',
+                'SECOND_NAME',
+                'PHONE',
+                'EMAIL',
+                'UF_CRM_1790672831151'
+            ],
+            limit
+        });
+        return response.data?.result || [];
+    },
+
+    /**
+     * Get a contact custom userfield definition by its FIELD_NAME.
+     */
+    async getUserfieldByName(fieldName: string): Promise<any | null> {
+        try {
+            const response = await client.post('crm.contact.userfield.list.json', {
+                filter: { FIELD_NAME: fieldName }
+            });
+            const list = response.data?.result || [];
+            if (!list || list.length === 0) return null;
+            const baseField = list[0];
+
+            // Fetch detailed field including its LIST items
+            try {
+                const detailRes = await client.post('crm.contact.userfield.get.json', {
+                    id: baseField.ID
+                });
+                if (detailRes.data?.result) {
+                    return detailRes.data.result;
+                }
+            } catch (detailErr) {
+                console.error(`Failed to get details for userfield ${fieldName}`, detailErr);
+            }
+            return baseField;
+        } catch (err) {
+            console.error(`Failed to query userfield ${fieldName}`, err);
+            return null;
+        }
+    },
+
+    /**
+     * Add a new enumeration item to the Recruiter custom contact field (default UF_CRM_1790672831151).
+     * If an option with the same name already exists (case-insensitive), returns its ID.
+     */
+    async addRecruiterEnumOption(
+        recruiterName: string,
+        fieldName = 'UF_CRM_1790672831151'
+    ): Promise<{ id: string; value: string }> {
+        const trimmed = recruiterName.trim();
+        if (!trimmed) {
+            throw new Error('Recruiter name cannot be empty');
+        }
+
+        const userfield = await this.getUserfieldByName(fieldName);
+        if (!userfield || !userfield.ID) {
+            throw new Error(`Custom field ${fieldName} not found in Bitrix`);
+        }
+
+        // Retrieve current enumeration items
+        let currentItems: Array<{ ID?: string | number; VALUE?: string; SORT?: number | string }> = [];
+        if (Array.isArray(userfield.LIST)) {
+            currentItems = userfield.LIST;
+        } else {
+            const contactFields = await this.getContactFields();
+            if (contactFields[fieldName]?.items) {
+                currentItems = contactFields[fieldName].items;
+            }
+        }
+
+        // Check if an enum item with the same value already exists
+        const existing = currentItems.find(
+            (item) => String(item.VALUE || '').trim().toLowerCase() === trimmed.toLowerCase()
+        );
+        if (existing && existing.ID) {
+            return { id: String(existing.ID), value: String(existing.VALUE || trimmed) };
+        }
+
+        // Prepare existing items to preserve their values and sort order
+        const listPayload = currentItems.map((item, idx) => ({
+            ID: item.ID,
+            VALUE: item.VALUE,
+            SORT: item.SORT || (idx + 1) * 10
+        }));
+
+        listPayload.push({
+            VALUE: trimmed,
+            SORT: (listPayload.length + 1) * 10
+        } as any);
+
+        await client.post('crm.contact.userfield.update.json', {
+            id: userfield.ID,
+            fields: {
+                LIST: listPayload
+            }
+        });
+
+        // Re-fetch userfield items to get the newly assigned enum ID
+        const updatedUserfield = await this.getUserfieldByName(fieldName);
+        let updatedItems: Array<{ ID?: string | number; VALUE?: string }> = [];
+        if (Array.isArray(updatedUserfield?.LIST)) {
+            updatedItems = updatedUserfield.LIST;
+        } else {
+            const freshFields = await this.getContactFields();
+            updatedItems = freshFields[fieldName]?.items || [];
+        }
+
+        const matched = updatedItems.find(
+            (item) => String(item.VALUE || '').trim().toLowerCase() === trimmed.toLowerCase()
+        );
+
+        if (!matched || !matched.ID) {
+            throw new Error(`Failed to retrieve newly created enumeration ID for "${trimmed}"`);
+        }
+
+        return {
+            id: String(matched.ID),
+            value: String(matched.VALUE || trimmed)
+        };
     }
 };
 

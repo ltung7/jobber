@@ -38,6 +38,11 @@
 
 	<div class="sidebar-section">Other Tools</div>
 
+	<a class="sidebar-item" href="/contracts">
+		<UIcon name="document" />
+		DocuSign Contracts
+	</a>
+
 	<a class="sidebar-item" href="/bitrix/recruiter">
 		<UIcon name="fraud-prevention" />
 		Recruiter provision
