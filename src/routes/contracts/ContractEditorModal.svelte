@@ -70,7 +70,7 @@ Umowa zostaje zawarta na czas nieokreślony. W sprawach nieuregulowanych niniejs
 			.filter((p) => p.length > 0)
 	);
 
-	// Complete bilingual template dictionary for professional translation
+	// Complete PL/EN template dictionary for professional translation
 	const TEMPLATE_TRANSLATIONS: Record<string, { title: string; pl: string; en: string }> = {
 		recommendation_standard: {
 			title: 'Umowa Rekomendacyjna / Recommendation Agreement',

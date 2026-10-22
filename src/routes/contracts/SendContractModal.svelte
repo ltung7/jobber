@@ -29,11 +29,17 @@
 
 	let selectedContractorId = $state<string>('');
 	let contractorEmailOverride = $state<string>('');
+	let contractorRepresentativeOverride = $state<string>('');
 
-	// Keep track when contractor changes to reset or prefill override email
-	$effect(() => {
-		contractorEmailOverride = activeContractor.email || 'biuro@eisg.pl';
-	});
+	function handleContractorChange(newId: string) {
+		selectedContractorId = newId;
+		const found = contractors.find((c) => String(c.id) === String(newId));
+		const target = found || contractors.find((c) => c.isDefault) || contractors[0];
+		if (target) {
+			contractorEmailOverride = target.email || 'biuro@eisg.pl';
+			contractorRepresentativeOverride = target.representative || '';
+		}
+	}
 
 	const activeContractor = $derived.by(() => {
 		if (selectedContractorId) {
@@ -90,10 +96,9 @@
 			newRecruiterName = '';
 
 			const defaultC = contractors.find((c) => c.isDefault) || contractors[0];
-			if (defaultC?.id) {
-				selectedContractorId = defaultC.id;
-			}
-			contractorEmailOverride = activeContractor.email || 'biuro@eisg.pl';
+			selectedContractorId = defaultC?.id || '';
+			contractorEmailOverride = defaultC?.email || 'biuro@eisg.pl';
+			contractorRepresentativeOverride = defaultC?.representative || '';
 		}
 	});
 
@@ -104,7 +109,7 @@
 		}
 	});
 
-	// Bilingual paragraph breakdown
+	// Paragraph breakdown
 	const plParagraphs = $derived(
 		(contract?.plText || '')
 			.split(/\n\s*\n/)
@@ -266,12 +271,12 @@
 	async function handlePreviewPdf() {
 		isGeneratingPreview = true;
 		try {
-			addToast('Generating bilingual PDF preview...', 'info');
+			addToast('Generating PDF preview...', 'info');
 			const { doc } = await generatePdfInstance();
 			const pdfBlob = doc.output('blob');
 			const pdfUrl = URL.createObjectURL(pdfBlob);
 			window.open(pdfUrl, '_blank');
-			addToast('Bilingual PDF preview opened in new tab!', 'success');
+			addToast('PDF preview opened in new tab!', 'success');
 		} catch (err: any) {
 			console.error(err);
 			addToast(err?.message || 'Error generating PDF preview.', 'danger');
@@ -308,7 +313,7 @@
 
 		isSubmitting = true;
 		try {
-			addToast('Rendering bilingual contract document...', 'info');
+			addToast('Rendering contract document...', 'info');
 			const { doc, leftCoords, rightCoords } = await generatePdfInstance();
 			const pdfBase64 = doc.output('datauristring');
 
@@ -329,7 +334,6 @@
 					contractorId: activeContractor.id,
 					contractorNip: activeContractor.nip,
 					contracteeId: selectedContracteeId || undefined,
-					language: 'bilingual',
 					plainText: activeContractText,
 					receiver: {
 						name: receiverName.trim(),
@@ -357,7 +361,7 @@
 				throw new Error(data.message || data.error || 'Error sending contract');
 			}
 
-			addToast('Bilingual contract sent via DocuSign successfully!', 'success');
+			addToast('Contract sent via DocuSign successfully!', 'success');
 			onSent({
 				id: data.id,
 				envelopeId: data.envelopeId,
@@ -366,7 +370,6 @@
 				contractorId: activeContractor.id,
 				contractorNip: activeContractor.nip,
 				contracteeId: data.contracteeId || selectedContracteeId || undefined,
-				language: 'bilingual',
 				sender: { name: activeContractor.name, email: contractorEmailOverride.trim() || activeContractor.email || 'biuro@eisg.pl' },
 				receiver: {
 					name: receiverName.trim(),
@@ -395,7 +398,7 @@
 <ClosableModal
 	bind:isOpen
 	size="xl"
-	headerText={`Send Bilingual Contract: ${contract?.title || ''}`}
+	headerText={`Send Contract: ${contract?.title || ''}`}
 >
 	<div class="row g-3">
 		<!-- Section: Contractor / Principal (Party 1) -->
@@ -410,141 +413,151 @@
 				</span>
 			</div>
 
-			<div class="row g-2 align-items-center">
+			<div class="row g-2">
+				<!-- Top-Left: Select Contractor -->
 				<div class="col-md-6">
+					<label class="form-label text-2xs fw-bold text-slate-600 mb-0.5" for="contractorSelect">Select Contractor Company:</label>
 					<select
-						class="form-select form-select-sm text-xs border-slate-200 bg-white mb-2"
-						value={selectedContractorId || activeContractor.id || ''}
-						onchange={(e) => {
-							selectedContractorId = e.currentTarget.value;
-							const c = contractors.find((item) => item.id === selectedContractorId);
-							if (c) {
-								contractorEmailOverride = c.email || 'biuro@eisg.pl';
-							}
-						}}
+						id="contractorSelect"
+						class="form-select form-select-sm text-xs border-slate-200 bg-white"
+						value={selectedContractorId}
+						onchange={(e) => handleContractorChange(e.currentTarget.value)}
 					>
-						{#each contractors as c (c.id || c.nip)}
+						<option value="">-- Use default contractor ({contractors.find((c) => c.isDefault)?.name || contractors[0]?.name || 'EISG'}) --</option>
+						{#each contractors as c (c.id)}
 							<option value={c.id}>
 								{c.name} (NIP: {c.nip}){c.isDefault ? ' [Default]' : ''}
 							</option>
 						{/each}
 					</select>
-					<div>
-						<label class="form-label text-2xs fw-bold text-slate-600 mb-0.5" for="contractorEmailInput">Contractor Email:</label>
-						<input
-							id="contractorEmailInput"
-							type="email"
-							class="form-control form-control-sm text-xs border-slate-200 rounded-3 px-2 py-1"
-							placeholder="contractor@example.com"
-							bind:value={contractorEmailOverride}
-						/>
+				</div>
+
+				<!-- Top-Right: Contractor Details -->
+				<div class="col-md-6">
+					<div class="text-2xs text-secondary bg-white p-2 rounded-3 border border-slate-200 h-100 d-flex flex-column justify-content-center">
+						<div><strong>{activeContractor.name}</strong></div>
+						<div>{activeContractor.address}</div>
 					</div>
 				</div>
-				<div class="col-md-6 text-2xs text-secondary">
-					<div><strong>{activeContractor.name}</strong> &bull; {activeContractor.address}</div>
+
+				<!-- Bottom-Left: Override Representative Name -->
+				<div class="col-md-6">
+					<label class="form-label text-2xs fw-bold text-slate-600 mb-0.5" for="contractorRepInput">Override Representative Name:</label>
+					<input
+						id="contractorRepInput"
+						type="text"
+						class="form-control form-control-sm text-xs border-slate-200 rounded-3 px-2 py-1"
+						placeholder="e.g. Jan Kowalski (Zarząd)"
+						bind:value={contractorRepresentativeOverride}
+					/>
+				</div>
+
+				<!-- Bottom-Right: Override Email -->
+				<div class="col-md-6">
+					<label class="form-label text-2xs fw-bold text-slate-600 mb-0.5" for="contractorEmailInput">Override Contractor Email:</label>
+					<input
+						id="contractorEmailInput"
+						type="email"
+						class="form-control form-control-sm text-xs border-slate-200 rounded-3 px-2 py-1"
+						placeholder="contractor@example.com"
+						bind:value={contractorEmailOverride}
+					/>
 				</div>
 			</div>
 		</div>
 
-		<!-- Section: Pick Saved Contractee (Optional) -->
-		{#if contractees.length > 0}
-			<div class="col-12 bg-slate-50 p-2.5 rounded-3 border border-slate-200">
-				<div class="d-flex align-items-center justify-content-between mb-1.5">
-					<span class="text-xs fw-bold text-slate-700 text-uppercase d-flex align-items-center gap-1.5">
-						<UIcon name="users-alt" size="6" />
-						<span>Pick from Saved Contractees / Recommenders:</span>
+		<!-- Section: Party 2: Recommender / Contractee Details -->
+		<div class="col-12 bg-slate-50 p-3 rounded-3 border border-slate-200">
+			<div class="d-flex align-items-center justify-content-between mb-2">
+				<span class="text-xs fw-bold text-slate-700 text-uppercase d-flex align-items-center gap-1.5">
+					<UIcon name="user" size="6" />
+					<span class="ms-2">Party 2: Recommender / Contractee Details</span>
+				</span>
+				{#if selectedContracteeId}
+					<span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-0.5 text-2xs fw-bold">
+						Contractee Selected
 					</span>
-					{#if selectedContracteeId}
-						<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 text-2xs fw-bold">
-							Contractee Selected
-						</span>
+				{/if}
+			</div>
+
+			<div class="row g-2">
+				{#if contractees.length > 0}
+					<div class="col-12 mb-2">
+						<label class="form-label text-2xs fw-bold text-slate-600 mb-0.5" for="contracteeSelect">Pick from Saved Contractees (Optional):</label>
+						<select
+							id="contracteeSelect"
+							class="form-select form-select-sm text-xs border-slate-200 bg-white"
+							value={selectedContracteeId}
+							onchange={(e) => handleContracteeSelect(e.currentTarget.value)}
+						>
+							<option value="">-- Choose saved Contractee or fill manually below --</option>
+							{#each contractees as c (c.id)}
+								<option value={c.id}>
+									{c.name} {c.phone ? `(${c.phone})` : ''} {c.recruiterName ? `[Recruiter: ${c.recruiterName}]` : ''}
+								</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
+
+				<div class="col-md-6">
+					<label class="form-label text-2xs fw-bold text-slate-600 mb-0.5" for="receiverNameInput">
+						Recommender Full Name <span class="text-danger">*</span>
+					</label>
+					<input
+						id="receiverNameInput"
+						type="text"
+						class="form-control form-control-sm text-xs border-slate-200 rounded-3 px-2 py-1"
+						placeholder="e.g. John Doe / Ram Kumar"
+						bind:value={receiverName}
+					/>
+				</div>
+
+				<div class="col-md-6">
+					<span class="form-label text-2xs fw-bold text-slate-600 mb-0.5 d-block">Assigned Recruiter (Bitrix)</span>
+					<CustomFormSelect
+						list={recruiterDropdownList}
+						bind:value={selectedRecruiterId}
+					/>
+					{#if selectedRecruiterId === 'create_new'}
+						<div class="alert alert-info py-1 px-2.5 mt-1.5 mb-0 text-2xs rounded-3">
+							Will create a new recruiter in Bitrix using contractee name: <strong>{receiverName.trim() || '(enter contractee name above)'}</strong>
+						</div>
 					{/if}
 				</div>
-				<select
-					class="form-select form-select-sm text-xs border-slate-200 bg-white"
-					value={selectedContracteeId}
-					onchange={(e) => handleContracteeSelect(e.currentTarget.value)}
-				>
-					<option value="">-- Choose saved Contractee or fill manually below --</option>
-					{#each contractees as c (c.id)}
-						<option value={c.id}>
-							{c.name} {c.phone ? `(${c.phone})` : ''} {c.recruiterName ? `[Recruiter: ${c.recruiterName}]` : ''}
-						</option>
-					{/each}
-				</select>
-			</div>
-		{/if}
 
-		<!-- Recommender Form Fields -->
-		<div class="col-12 mt-3">
-			<span class="text-xs fw-bold text-slate-700 text-uppercase d-flex align-items-center gap-1.5">
-				<UIcon name="user" size="6" />
-				<span class="ms-2">Party 2: Recommender / Contractee Details</span>
-			</span>
-		</div>
-
-		<div class="col-md-6">
-			<label class="form-label text-xs fw-bold text-slate-700 text-uppercase mb-1" for="receiverNameInput">
-				Recommender Full Name <span class="text-danger">*</span>
-			</label>
-			<input
-				id="receiverNameInput"
-				type="text"
-				class="form-control form-control-sm text-xs border-slate-200 rounded-3 px-3"
-				placeholder="e.g. John Doe / Ram Kumar"
-				bind:value={receiverName}
-			/>
-		</div>
-
-		<div class="col-md-6">
-			<span class="form-label text-xs fw-bold text-slate-700 text-uppercase mb-1 d-block">Assigned Recruiter (Bitrix)</span>
-			<CustomFormSelect
-				list={recruiterDropdownList}
-				bind:value={selectedRecruiterId}
-			/>
-			{#if selectedRecruiterId === 'create_new'}
-				<div class="mt-1.5">
+				<div class="col-md-6">
+					<label class="form-label text-2xs fw-bold text-slate-600 mb-0.5" for="receiverPhoneInput">
+						Phone Number
+						{#if deliveryMethod === 'SMS'}
+							<span class="text-danger">* (Required for SMS)</span>
+						{/if}
+					</label>
 					<input
-						type="text"
-						class="form-control form-control-sm text-xs border-slate-200 rounded-3 px-3"
-						placeholder="New Recruiter Name in Bitrix..."
-						bind:value={newRecruiterName}
+						id="receiverPhoneInput"
+						type="tel"
+						class="form-control form-control-sm text-xs border-slate-200 rounded-3 px-2 py-1"
+						placeholder="+48 500 000 000"
+						bind:value={receiverPhone}
 					/>
-					<div class="text-muted text-2xs mt-0.5">Will be added directly into Bitrix recruiter userfield list.</div>
 				</div>
-			{/if}
-		</div>
 
-		<div class="col-md-6">
-			<label class="form-label text-xs fw-bold text-slate-700 text-uppercase mb-1" for="receiverPhoneInput">
-				Phone Number
-				{#if deliveryMethod === 'SMS'}
-					<span class="text-danger">* (Required for SMS)</span>
-				{/if}
-			</label>
-			<input
-				id="receiverPhoneInput"
-				type="tel"
-				class="form-control form-control-sm text-xs border-slate-200 rounded-3 px-3"
-				placeholder="+48 500 000 000"
-				bind:value={receiverPhone}
-			/>
-		</div>
-
-		<div class="col-md-6">
-			<label class="form-label text-xs fw-bold text-slate-700 text-uppercase mb-1" for="receiverEmailInput">
-				Email Address
-				{#if deliveryMethod === 'email'}
-					<span class="text-danger">* (Required for Email)</span>
-				{/if}
-			</label>
-			<input
-				id="receiverEmailInput"
-				type="email"
-				class="form-control form-control-sm text-xs border-slate-200 rounded-3 px-3"
-				placeholder="recommender@example.com"
-				bind:value={receiverEmail}
-			/>
+				<div class="col-md-6">
+					<label class="form-label text-2xs fw-bold text-slate-600 mb-0.5" for="receiverEmailInput">
+						Email Address
+						{#if deliveryMethod === 'email'}
+							<span class="text-danger">* (Required for Email)</span>
+						{/if}
+					</label>
+					<input
+						id="receiverEmailInput"
+						type="email"
+						class="form-control form-control-sm text-xs border-slate-200 rounded-3 px-2 py-1"
+						placeholder="recommender@example.com"
+						bind:value={receiverEmail}
+					/>
+				</div>
+			</div>
 		</div>
 
 		<!-- Delivery Method Selection -->
@@ -653,7 +666,7 @@
 			</div>
 		</div>
 
-		<!-- Title Banner: Bilingual -->
+		<!-- Title Banner -->
 		<div style="text-align: center; margin-bottom: 20px;">
 			<h2 style="margin: 0; font-size: 16px; font-weight: 700; text-transform: uppercase; color: #0f172a; letter-spacing: 0.02em;">
 				UMOWA REKOMENDACYJNA &bull; RECOMMENDATION AGREEMENT
@@ -676,8 +689,8 @@
 				</div>
 				<div>
 					<strong>2. Polecający (Zleceniobiorca):</strong><br />
-					[Imię i Nazwisko / Full Name]<br />
-					Rozliczenie: Przelew bankowy / Gotówka
+					<strong>{receiverName.trim() || '[Imię i Nazwisko / Full Name]'}</strong><br />
+					Rozliczenie: {paymentMethod === 'bank' ? `Przelew bankowy (${bankAccount || 'Konto nie podane'})` : 'Gotówka ("Gotówka")'}
 				</div>
 			</div>
 
@@ -692,8 +705,8 @@
 				</div>
 				<div>
 					<strong>2. Recommender:</strong><br />
-					[Full Name]<br />
-					Payout method: Bank Transfer / Cash
+					<strong>{receiverName.trim() || '[Full Name]'}</strong><br />
+					Payout method: {paymentMethod === 'bank' ? `Bank Transfer (${bankAccount || 'Account not provided'})` : 'Cash ("Gotówka")'}
 				</div>
 			</div>
 		</div>
@@ -795,7 +808,7 @@
 				<span>Rendering...</span>
 			{:else}
 				<UIcon name="eye" size="6" />
-				<span>Preview Bilingual PDF</span>
+				<span>Preview PDF</span>
 			{/if}
 		</button>
 
@@ -810,7 +823,7 @@
 				<span>Dispatching to DocuSign...</span>
 			{:else}
 				<UIcon name="paper-plane" size="6" />
-				<span>Send Bilingual Contract</span>
+				<span>Send Contract</span>
 			{/if}
 		</button>
 	{/snippet}

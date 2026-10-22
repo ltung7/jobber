@@ -239,6 +239,32 @@
 8. **Custom Sender / Reply-To Override:**
    - Added `emailSettings` with `replyEmailAddressOverride` and `replyEmailNameOverride` in `sendEnvelope` so sent envelopes reflect the correct Contractor company sender info instead of default demo account details.
 
+## 9. Phase 4: Contractor Representatives, 2x2 Grid Form Redesign, IBAN Validation & Refinements
+
+### Context & Implementation Summary
+1. **Contractor Representative & Recommender Signer Integration:**
+   - Added contractor representative information (`representative`) across the Contractor FDB model, Contractor Modal, and PDF document header / signature sections.
+   - Updated recipient/recommender rendering to display full names and payout methods correctly in both Polish and English header blocks.
+
+2. **2x2 Grid Form Redesign for Contractor Dispatch (`SendContractModal.svelte`):**
+   - Redesigned the Contractor section into a clean 2x2 grid layout:
+     - **Top-Left:** Select Contractor Company dropdown.
+     - **Top-Right:** Contractor Details card (Name, address, NIP, KRS).
+     - **Bottom-Left:** Override Representative Name input.
+     - **Bottom-Right:** Override Contractor Email input.
+   - Fixed selection state binding and ensured switching contractors updates the active contractor details card instantly without reactive loops.
+
+3. **Automatic Recruiter Name from Contractee:**
+   - When selecting `"create_new"` for a recruiter, the system automatically uses the recommender's entered full name to create the new Bitrix custom enumeration option.
+
+4. **IBAN Validation Utility:**
+   - Created `src/lib/utils/iban.ts` featuring ISO 7064 MOD-97-10 checksum validation supporting both standard Polish 26-digit accounts and international IBANs.
+   - Added comprehensive Vitest unit tests in `src/lib/utils/__tests__/iban.test.ts`.
+
+5. **Cleanup & Terminology Refinement:**
+   - Removed all `console.log` statements.
+   - Cleaned up and removed all references to "bilingual" across labels, toasts, types, and saved envelope metadata.
+
 ---
 
 ### Summary of Remaining Steps

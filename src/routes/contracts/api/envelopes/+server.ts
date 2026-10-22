@@ -47,7 +47,6 @@ export const POST = async ({ request }: RequestEvent) => {
         contractorId,
         contractorNip,
         contracteeId,
-        language = 'pl',
         plainText = '',
         receiver,
         sender = { name: 'EISG Sp. z o.o.', email: 'biuro@eisg.pl' },
@@ -185,7 +184,6 @@ export const POST = async ({ request }: RequestEvent) => {
     const envelopeData:  Omit<SentEnvelope, 'id'> = {
         envelopeId: envelopeResult.envelopeId,
         contractTitle: contractTitle || 'Recommendation Agreement',
-        language,
         sender,
         receiver: {
             ...receiver,

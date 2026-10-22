@@ -21,8 +21,6 @@
 	import { fly, slide } from 'svelte/transition';
 	import { untrack } from 'svelte';
 
-	const CONTACT_BASE_URL = 'https://eisg.bitrix24.pl/crm/contact/details/';
-
 	let { data }: { data: PageData } = $props();
 
 	// Active View Mode
@@ -477,7 +475,7 @@
 
 <div class="dashboard-wrapper">
 	<!-- TOP APP BRANDING & STATUS HEADER -->
-	<EisgTopbar badgeText="DOCUSIGN" subtitle="Bilingual Contract Dispatch &amp; Recommender Quota Engine">
+	<EisgTopbar badgeText="DOCUSIGN" subtitle="Contract Dispatch &amp; Recommender Quota Engine">
 		<div class="btn-group btn-group-sm shadow-xs rounded-pill p-1 bg-slate-100 border" role="group" aria-label="View toggle">
 			<button type="button" class="btn btn-sm rounded-pill px-3 py-1 text-xs fw-semibold {activeView === 'templates' ? 'btn-primary' : 'text-secondary hover-dark'}" onclick={() => (activeView = 'templates')}>
 				<UIcon name="file" size="6" class="me-1" />
@@ -899,7 +897,7 @@
 													<td>
 														<div class="fw-semibold text-slate-800 text-xs">{env.contractTitle}</div>
 														<div class="d-flex align-items-center gap-1.5 mt-0.5">
-															<span class="badge rounded-pill bg-purple-subtle text-purple border border-purple-subtle px-2 py-0 text-2xs fw-bold"> 🇵🇱 / 🇬🇧 Bilingual </span>
+															<span class="badge rounded-pill bg-purple-subtle text-purple border border-purple-subtle px-2 py-0 text-2xs fw-bold"> 🇵🇱 / 🇬🇧 PL / EN </span>
 															{#if env.recruiterName}
 																<span class="text-secondary text-2xs">Recruiter: <strong>{env.recruiterName}</strong></span>
 															{/if}
@@ -1561,5 +1559,5 @@
 <!-- Modal: Contractee (Party 2) -->
 <ContracteeModal bind:isOpen={showContracteeModal} contractee={editingContractee} {recruiterOptions} onSaved={handleContracteeSaved} />
 
-<!-- Modal: Bilingual PDF Preview from Contracts List -->
+<!-- Modal: PDF Preview from Contracts List -->
 <ContractPdfPreviewModal bind:isOpen={showPdfPreviewModal} contract={previewContract} {contractors} />

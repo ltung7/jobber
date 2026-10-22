@@ -17,7 +17,6 @@ export interface SentEnvelope {
     contractorId?: string;
     contractorNip?: string;
     contracteeId?: string;
-    language: 'pl' | 'en' | 'bilingual';
     sender: EnvelopeParty;
     receiver: EnvelopeParty;
     paymentMethod: 'bank' | 'cash';

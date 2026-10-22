@@ -72,7 +72,7 @@
 
 		isGenerating = true;
 		try {
-			addToast('Generating bilingual PDF...', 'info');
+			addToast('Generating PDF...', 'info');
 
 			// @ts-ignore - loaded from CDN
 			const { jsPDF } = window.jspdf;
@@ -129,7 +129,7 @@
 			const pdfBlob = doc.output('blob');
 			const pdfUrl = URL.createObjectURL(pdfBlob);
 			window.open(pdfUrl, '_blank');
-			addToast('Bilingual PDF opened in new tab!', 'success');
+			addToast('PDF opened in new tab!', 'success');
 		} catch (err: any) {
 			console.error(err);
 			addToast(err?.message || 'Error generating PDF.', 'danger');
@@ -142,7 +142,7 @@
 <ClosableModal
 	bind:isOpen
 	size="xl"
-	headerText={`Bilingual PDF Document Preview: ${contract?.title || ''}`}
+	headerText={`PDF Document Preview: ${contract?.title || ''}`}
 >
 	<div class="p-2">
 		<!-- Top Controls Toolbar -->
@@ -197,7 +197,7 @@
 					</div>
 				</div>
 
-				<!-- Title Banner: Bilingual -->
+				<!-- Title Banner -->
 				<div style="text-align: center; margin-bottom: 20px;">
 					<h2 style="margin: 0; font-size: 16px; font-weight: 700; text-transform: uppercase; color: #0f172a; letter-spacing: 0.02em;">
 						UMOWA REKOMENDACYJNA &bull; RECOMMENDATION AGREEMENT
@@ -216,7 +216,8 @@
 						</div>
 						<div style="margin-bottom: 6px;">
 							<strong>1. Zleceniodawca:</strong><br />
-							{activeContractor.name}, {activeContractor.address}{activeContractor.nip ? `, NIP: ${activeContractor.nip}` : ''}{activeContractor.krs ? `, KRS: ${activeContractor.krs}` : ''}.
+							{activeContractor.name}, {activeContractor.address}{activeContractor.nip ? `, NIP: ${activeContractor.nip}` : ''}{activeContractor.krs ? `, KRS: ${activeContractor.krs}` : ''}.<br />
+							<strong>Reprezentowany przez:</strong> {activeContractor.representative || 'Zarząd Spółki'}
 						</div>
 						<div>
 							<strong>2. Polecający (Zleceniobiorca):</strong><br />
@@ -232,7 +233,8 @@
 						</div>
 						<div style="margin-bottom: 6px;">
 							<strong>1. Principal:</strong><br />
-							{activeContractor.name}, {activeContractor.address}{activeContractor.nip ? `, Tax ID (NIP): ${activeContractor.nip}` : ''}{activeContractor.krs ? `, Reg. (KRS): ${activeContractor.krs}` : ''}.
+							{activeContractor.name}, {activeContractor.address}{activeContractor.nip ? `, Tax ID (NIP): ${activeContractor.nip}` : ''}{activeContractor.krs ? `, Reg. (KRS): ${activeContractor.krs}` : ''}.<br />
+							<strong>Represented by:</strong> {activeContractor.representative || 'Board of Directors'}
 						</div>
 						<div>
 							<strong>2. Recommender:</strong><br />
