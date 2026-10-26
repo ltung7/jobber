@@ -12,7 +12,7 @@
     }
 </script>
 
-<Toast class="border {toast.type === 'danger' ? 'border-danger' : 'border-dark'} toast-{toast.type}">
+<Toast class="border mb-2 {toast.type === 'danger' ? 'border-danger' : 'border-dark'} toast-{toast.type}">
     <div class="toast-header">
         <div class="d-flex align-items-center w-100">
             <span class="text-{toast.type} me-auto">

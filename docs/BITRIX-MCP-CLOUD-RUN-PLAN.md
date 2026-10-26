@@ -57,6 +57,18 @@ Before diving into the technical implementation tasks, here is the complete live
 | `UF_CRM_6A78301F32E5D` | **Passport number** | `string` | Passport number |
 | `UF_CRM_1790689375992` | **Agreement validity** | `string` | Text field (not typed as `date`) |
 
+#### D. Quotes (`CRM_QUOTE`, `entityTypeId: 7`) — enabled read-only
+Live check: **517 quotes**, 49 fields, only 4 custom fields, **no file/disk fields** (`FILES` absent; `storageElementIds` exists and is already in `BLOCKED_FIELD_KEYS`). Client PII (`clientEmail`, `clientPhone`, `clientContact`) and commercial fields (`opportunity`, `taxValue`, `content`, `terms`) are readable; worker documents are not stored here.
+
+| Field Code | Label | Type | Notes |
+| :--- | :--- | :--- | :--- |
+| `UF_CRM_QUOTE_1788164881639` | **Valid from** | `date` | Quote validity start |
+| `UF_CRM_QUOTE_1788165144700` | **Pracodawca-użytkownik** | `enumeration` | Employer-user |
+| `UF_CRM_QUOTE_1788166776338` | **18 month period end** | `date` | Legalization 18-month horizon |
+| `UF_CRM_QUOTE_1788172213716` | **Document type** | `enumeration` | Document type |
+
+> `crm.category.list` / `crm.stagehistory.list` **do not support quotes** (`Nieobsługiwany obiekt CRM „Oferta”`), so funnels for `entityTypeId: 7` must come from `stageId` values on the items themselves (currently `DRAFT`).
+
 ### 1.2. Missing Document Validity Date Fields on Contact (`CRM_CONTACT`) & Provisioning Plan
 Currently, **TRC validity date** (`UF_CRM_1787751150636`), **WP validity date** (`UF_CRM_1787821910705`), and **Passport validity date** (`UF_CRM_1787822064574`) exist **only on Deals (`CRM_DEAL`)**, NOT on **Contacts (`CRM_CONTACT`)**, and there is **no Visa validity date** field on Contact either!
 Per requirement #4 (*"Jeśli pól z datami ważności dokumentów nie ma, załóż je proszę w kontakcie"*), we will run a one-time provisioning script via `crm.contact.userfield.add` to create 4 `date` fields on Contacts:
@@ -117,15 +129,16 @@ Furthermore, the `expiring_documents(days)` high-level MCP tool will check **bot
 ### 2.2. Strict Read-Only Enforcement & GDPR/RODO Sanitization
 1. **Method Whitelist (`READ_ONLY_METHOD_WHITELIST`)**:
    - The Bitrix HTTP client inside the MCP layer enforces a hard, immutable `Set` of allowed Bitrix REST methods:
-     - `crm.item.list` (restricted to `entityTypeId` in `[1, 2, 3]`)
-     - `crm.item.get` (restricted to `entityTypeId` in `[1, 2, 3]`)
-     - `crm.item.fields` (restricted to `entityTypeId` in `[1, 2, 3]`)
-     - `crm.category.list`
+     - `crm.item.list` (restricted to `entityTypeId` in `[1, 2, 3, 7]`)
+     - `crm.item.get` (restricted to `entityTypeId` in `[1, 2, 3, 7]`)
+     - `crm.item.fields` (restricted to `entityTypeId` in `[1, 2, 3, 7]`)
+     - `crm.category.list` (restricted to `entityTypeId` in `[1, 2, 3, 7]`)
      - `crm.status.list`
-     - `crm.stagehistory.list`
+     - `crm.stagehistory.list` (restricted to `entityTypeId` in `[1, 2, 3, 7]`)
      - `crm.activity.list`
      - `tasks.task.list`
      - `user.get`
+   - **Entity-type allowlist** (`1` Lead, `2` Deal, `3` Contact, `7` Quote) applies to every entity-scoped method (`crm.item.*`, `crm.category.list`, `crm.stagehistory.list`). Companies (`4`), invoices (`5`, `31`), requisites (`8`), documents (`36`, `39`) and SPAs (`>= 128`) stay blocked because `BLOCKED_FIELD_KEYS` does not cover bank accounts, requisites or legal-document content; `5` and `8` are additionally unsupported by `crm.item.*`. A missing `entityTypeId` is rejected rather than forwarded.
    - Any attempt to call a method not in this exact `Set` (e.g., `*.add`, `*.update`, `*.delete`, `*.set`, `batch` containing mutations, `disk.*`, `crm.item.import`) immediately throws `BitrixReadOnlyViolationError` before any network request is made.
 2. **RODO / File & Credential Stripping (`sanitizeBitrixPayload`)**:
    - **No Files/Scans:** Strips `FILES`, `WEBDAV_ELEMENTS`, `PHOTO`, `photo`, and any field whose schema type is `file` or `diskfile`, or any object containing `downloadUrl`, `showUrl`, `urlMachine`. In `crm.activity.list`, if `select` is provided by the caller, `FILES` and `STORAGE_ELEMENT_IDS` are forcibly removed from `select`.
@@ -257,7 +270,7 @@ export const findBitrixMcpLogs = async <T = BitrixMcpAuditLog>(
       'user.get'
   ] as const);
 
-  export const ALLOWED_CRM_ENTITY_TYPES = new Set([1, 2, 3]); // 1=Lead, 2=Deal, 3=Contact
+  export const ALLOWED_CRM_ENTITY_TYPES = new Set([1, 2, 3, 7]); // 1=Lead, 2=Deal, 3=Contact, 7=Quote
   ```
 - **RODO / GDPR Field Blacklist (`BLOCKED_FIELDS`)**:
   - Automatically stripped from `select` arrays and removed from response objects:
@@ -269,17 +282,18 @@ export const findBitrixMcpLogs = async <T = BitrixMcpAuditLog>(
 Based on the official Bitrix24 REST API documentation:
 1. **`crm_item_list`**:
    - Calls `crm.item.list`.
-   - Inputs: `entityTypeId` (`1 | 2 | 3`), `filter` (optional object), `order` (optional object), `select` (optional string array, defaults to `['*', 'UF_*']`), `useOriginalUfNames` (`'Y' | 'N'`, defaults to `'Y'`), `start` (optional number), `fetchAll` (boolean, defaults to `false`, max 500 items per call).
+   - Inputs: `entityTypeId` (`1 | 2 | 3 | 7`), `filter` (optional object), `order` (optional object), `select` (optional string array, defaults to `['*', 'UF_*']`), `start` (optional number), `fetchAll` (boolean, defaults to `false`, max 500 items per call).
+   - **Do not send `useOriginalUfNames`**: on `crm.item.list` this legacy flag makes Bitrix return every item as an empty array `[]` (verified live 2026-10-22). The tool no longer exposes it and `callBitrixReadOnly` strips it defensively.
 2. **`crm_item_get`**:
    - Calls `crm.item.get`.
-   - Inputs: `entityTypeId` (`1 | 2 | 3`), `id` (number), `useOriginalUfNames` (defaults to `'Y'`).
+   - Inputs: `entityTypeId` (`1 | 2 | 3 | 7`), `id` (number), `useOriginalUfNames` (defaults to `'Y'`).
 3. **`crm_item_fields`**:
    - Calls `crm.item.fields`.
-   - Inputs: `entityTypeId` (`1 | 2 | 3`), `useOriginalUfNames` (defaults to `'Y'`).
+   - Inputs: `entityTypeId` (`1 | 2 | 3 | 7`), `useOriginalUfNames` (defaults to `'Y'`).
    - Returns clean field definitions (stripping file type upload URLs).
 4. **`crm_category_list`**:
    - Calls `crm.category.list`.
-   - Inputs: `entityTypeId` (`1 | 2 | 3`, defaults to `2` for Deals).
+   - Inputs: `entityTypeId` (`1 | 2 | 3 | 7`, defaults to `2` for Deals).
 5. **`crm_status_list`**:
    - Calls `crm.status.list`.
    - Inputs: `filter` (optional object, e.g., `{ ENTITY_ID: 'STATUS' }`, `{ ENTITY_ID: 'DEAL_STAGE_2' }`, `{ ENTITY_ID: 'SOURCE' }`), `order` (optional object).
@@ -430,7 +444,7 @@ To bind `https://bitrix.eisg.pl` to the `bitrix-mcp` service:
 - [x] **Task 2.1:** Create `src/lib/server/db/firebase/bitrixMcpLog.fdb.ts` modeled strictly on `src/lib/server/db/firebase/template.fdb.ts` (`setBitrixMcpLog`, `getBitrixMcpLog`, `findBitrixMcpLogs`, `addBitrixMcpLog`) using `collectionRef(accountId)`.
 
 ### Phase 3: Read-Only Bitrix Client & RODO Sanitizer
-- [x] **Task 3.1:** Create `src/lib/server/mcp/bitrix/config.ts` containing the immutable `ALLOWED_BITRIX_METHODS` whitelist, `ALLOWED_CRM_ENTITY_TYPES` (`1, 2, 3`), RODO blocked field keys, user aliases (`Ramod=14`, `DK=16`, `Darya=18`, `Michał=1`), and stage/source dictionaries.
+- [x] **Task 3.1:** Create `src/lib/server/mcp/bitrix/config.ts` containing the immutable `ALLOWED_BITRIX_METHODS` whitelist, `ALLOWED_CRM_ENTITY_TYPES` (`1, 2, 3, 7`), RODO blocked field keys, user aliases (`Ramod=14`, `DK=16`, `Darya=18`, `Michał=1`), and stage/source dictionaries.
 - [x] **Task 3.2:** Create `src/lib/server/mcp/bitrix/sanitizer.ts` with `sanitizeSelectFields(select)` and `sanitizeBitrixPayload(data)` to strip all file objects, scan URLs, `PHOTO`, `FILES`, and portal logins/passwords.
 - [x] **Task 3.3:** Create `src/lib/server/mcp/bitrix/client.ts` implementing `callBitrixReadOnly(method, params)` and `fetchBitrixPaginatedReadOnly(method, params, maxRecords)` using `BITRIX24_WEBHOOK_URL` from `.env`, throwing `BitrixReadOnlyViolationError` on any non-whitelisted method.
 
@@ -469,7 +483,7 @@ The implementation must pass all of the following automated and manual verificat
    ```
    Must verify:
    - **Read-Only Enforcement:** Calling `callBitrixReadOnly('crm.item.add', ...)` or `crm.lead.update` or `crm.deal.delete` throws `BitrixReadOnlyViolationError` and logs `status: 'BLOCKED_WRITE_ATTEMPT'` to `bitrixMcpLog.fdb.ts`.
-   - **Entity Type Restriction:** Calling `crm_item_list` with `entityTypeId: 4` (Company) or `31` (Invoice) is rejected.
+   - **Entity Type Restriction:** Calling `crm_item_list` with `entityTypeId: 4` (Company), `5` (old invoice), `8` (requisite), `31` (Invoice) or `36`/`39` (Documents) is rejected, while `7` (Quote/Oferta) is accepted; a missing `entityTypeId` is rejected too.
    - **RODO Sanitizer:** Payloads containing `PHOTO`, `FILES`, `downloadUrl`, `UF_CRM_1787749544391` (Trusted profile password) have those fields stripped before returning to the MCP caller.
    - **Firebase OAuth & Token Verification:** Unverified emails or forged Bearer tokens are rejected (`401`/`403`); valid HMAC-signed tokens issued after `admin.auth().verifyIdToken` authenticate with the user's verified `@eisg.pl` / `@finnergroup.com` email.
    - **Firestore Audit Logging:** Every tool execution calls `setBitrixMcpLog` / `addBitrixMcpLog` with `accountId` (verified user email), `toolName`, `bitrixMethods`, `params`, `durationMs`, and `createdAt`.

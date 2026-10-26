@@ -1,21 +1,27 @@
 import { callBitrixReadOnly, fetchBitrixPaginatedReadOnly } from './client';
 
+const CRM_ENTITY_ID_DESCRIPTION = 'Entity type ID: 1 (Lead), 2 (Deal), 3 (Contact), 7 (Quote/Oferta)';
+
+const entityTypeIdSchema = (server: any) =>
+    server.z.union([server.z.literal(1), server.z.literal(2), server.z.literal(3), server.z.literal(7)]);
+
 export const registerLowLevelTools = (server: any) => {
     // 1. crm_item_list
     server.tool(
         'crm_item_list',
         'List CRM items (Leads=1, Deals=2, Contacts=3) with optional filter, order, and select fields.',
         {
-            entityTypeId: server.z.number().describe('Entity type ID: 1 (Lead), 2 (Deal), 3 (Contact)'),
+            entityTypeId: entityTypeIdSchema(server).describe(CRM_ENTITY_ID_DESCRIPTION),
             filter: server.z.record(server.z.any()).optional().describe('Filter criteria object'),
             order: server.z.record(server.z.any()).optional().describe('Sorting order object'),
             select: server.z.array(server.z.string()).optional().describe('Fields to select (e.g. ["*", "UF_*"])'),
-            useOriginalUfNames: server.z.string().optional().default('Y').describe('Use original user field names ("Y" or "N")'),
             start: server.z.number().optional().describe('Pagination start offset'),
             fetchAll: server.z.boolean().optional().default(false).describe('Whether to fetch all pages automatically (up to 2500 records)')
         },
-        async ({ entityTypeId, filter, order, select, useOriginalUfNames, start, fetchAll }: any) => {
-            const params: Record<string, any> = { entityTypeId, useOriginalUfNames };
+        async ({ entityTypeId, filter, order, select, start, fetchAll }: any) => {
+            // NOTE: never send useOriginalUfNames to crm.item.list — Bitrix returns every item as an
+            // empty array ([]) instead of an object when that legacy flag is present. Verified live 2026-10-22.
+            const params: Record<string, any> = { entityTypeId };
             if (filter) params.filter = filter;
             if (order) params.order = order;
             if (select) params.select = select;
@@ -40,7 +46,7 @@ export const registerLowLevelTools = (server: any) => {
         'crm_item_get',
         'Get a single CRM item (Lead=1, Deal=2, Contact=3) by its ID.',
         {
-            entityTypeId: server.z.number().describe('Entity type ID: 1 (Lead), 2 (Deal), 3 (Contact)'),
+            entityTypeId: entityTypeIdSchema(server).describe(CRM_ENTITY_ID_DESCRIPTION),
             id: server.z.number().describe('Item record ID'),
             useOriginalUfNames: server.z.string().optional().default('Y').describe('Use original user field names')
         },
@@ -57,7 +63,7 @@ export const registerLowLevelTools = (server: any) => {
         'crm_item_fields',
         'Get field definitions and schema for CRM items (Leads=1, Deals=2, Contacts=3).',
         {
-            entityTypeId: server.z.number().describe('Entity type ID: 1 (Lead), 2 (Deal), 3 (Contact)'),
+            entityTypeId: entityTypeIdSchema(server).describe(CRM_ENTITY_ID_DESCRIPTION),
             useOriginalUfNames: server.z.string().optional().default('Y').describe('Use original user field names')
         },
         async ({ entityTypeId, useOriginalUfNames }: any) => {
@@ -73,7 +79,7 @@ export const registerLowLevelTools = (server: any) => {
         'crm_category_list',
         'List CRM categories (pipelines/funnels) for deals (entityTypeId=2 by default).',
         {
-            entityTypeId: server.z.number().optional().default(2).describe('Entity type ID (default 2 for Deals)')
+            entityTypeId: entityTypeIdSchema(server).optional().default(2).describe('Entity type ID (default 2 for Deals)')
         },
         async ({ entityTypeId }: any) => {
             const result = await callBitrixReadOnly('crm.category.list', { entityTypeId });
@@ -107,7 +113,7 @@ export const registerLowLevelTools = (server: any) => {
         'crm_stagehistory_list',
         'List stage transition history for Leads (1) or Deals (2).',
         {
-            entityTypeId: server.z.number().describe('Entity type ID: 1 (Lead), 2 (Deal)'),
+            entityTypeId: server.z.union([server.z.literal(1), server.z.literal(2)]).describe('Entity type ID: 1 (Lead), 2 (Deal)'),
             filter: server.z.record(server.z.any()).optional().describe('Filter object (e.g. { OWNER_ID: 123 })'),
             order: server.z.record(server.z.any()).optional().describe('Sorting order'),
             select: server.z.array(server.z.string()).optional().describe('Fields to select'),

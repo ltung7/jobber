@@ -12,7 +12,19 @@ export const ALLOWED_BITRIX_METHODS = new Set([
     'user.get'
 ] as const);
 
-export const ALLOWED_CRM_ENTITY_TYPES = new Set([1, 2, 3]); // 1=Lead, 2=Deal, 3=Contact
+// 1=Lead, 2=Deal, 3=Contact, 7=Quote (Oferta)
+// 4=Company, 5=Invoice(old), 8=Requisite, 31=Invoice, 36/39=Documents, >=128=SPA stay blocked:
+// they carry bank/requisite/financial or legal-document data that BLOCKED_FIELD_KEYS does not cover.
+export const ALLOWED_CRM_ENTITY_TYPES = new Set([1, 2, 3, 7]);
+
+// Methods whose entityTypeId must go through ALLOWED_CRM_ENTITY_TYPES
+export const ENTITY_SCOPED_METHODS = new Set([
+    'crm.item.list',
+    'crm.item.get',
+    'crm.item.fields',
+    'crm.category.list',
+    'crm.stagehistory.list'
+] as const);
 
 export const BLOCKED_FIELD_KEYS = new Set([
     'photo',

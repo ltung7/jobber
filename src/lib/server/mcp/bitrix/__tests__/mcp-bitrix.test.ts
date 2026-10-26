@@ -10,7 +10,7 @@ import {
     verifyPkce,
     verifyMcpRequest
 } from '$lib/server/mcp/bitrix/auth';
-import { getMcpSecretToken } from '$lib/server/mcp/bitrix/config';
+import { getMcpSecretToken, ALLOWED_CRM_ENTITY_TYPES } from '$lib/server/mcp/bitrix/config';
 import crypto from 'crypto';
 
 describe('Bitrix Read-Only MCP Guardrails & Sanitizer', () => {
@@ -32,6 +32,42 @@ describe('Bitrix Read-Only MCP Guardrails & Sanitizer', () => {
         await expect(callBitrixReadOnly('crm.item.list', { entityTypeId: 31 })) // 31 = Smart Invoice
             .rejects
             .toThrow(BitrixEntityTypeViolationError);
+    });
+
+    it('allows Quotes (7) and still blocks unsupported/unscoped types', async () => {
+        expect(ALLOWED_CRM_ENTITY_TYPES.has(7)).toBe(true);
+        for (const id of [4, 5, 8, 31, 36, 39]) {
+            expect(ALLOWED_CRM_ENTITY_TYPES.has(id)).toBe(false);
+        }
+
+        // entity type is rejected before any network call, for every scoped method
+        await expect(callBitrixReadOnly('crm.item.fields', { entityTypeId: 5 }))
+            .rejects
+            .toThrow(BitrixEntityTypeViolationError);
+        await expect(callBitrixReadOnly('crm.stagehistory.list', { entityTypeId: 4 }))
+            .rejects
+            .toThrow(BitrixEntityTypeViolationError);
+        await expect(callBitrixReadOnly('crm.category.list', { entityTypeId: 31 }))
+            .rejects
+            .toThrow(BitrixEntityTypeViolationError);
+
+        // missing entityTypeId must not silently pass through
+        await expect(callBitrixReadOnly('crm.item.list', {}))
+            .rejects
+            .toThrow(BitrixEntityTypeViolationError);
+    });
+
+    it('crm.item.list returns item objects even if useOriginalUfNames is passed', async () => {
+        const res: any = await callBitrixReadOnly('crm.item.list', {
+            entityTypeId: 7,
+            select: ['id', 'title'],
+            start: 0,
+            useOriginalUfNames: 'Y'
+        });
+        const items = res.result?.items ?? [];
+        expect(items.length).toBeGreaterThan(0);
+        expect(Array.isArray(items[0])).toBe(false);
+        expect(items[0]).toHaveProperty('id');
     });
 
     it('allows whitelisted read-only methods', async () => {

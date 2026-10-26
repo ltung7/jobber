@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ALLOWED_BITRIX_METHODS, ALLOWED_CRM_ENTITY_TYPES, getBitrixWebhookUrl } from './config';
+import { ALLOWED_BITRIX_METHODS, ALLOWED_CRM_ENTITY_TYPES, ENTITY_SCOPED_METHODS, getBitrixWebhookUrl } from './config';
 import { sanitizeBitrixPayload, sanitizeSelectFields } from './sanitizer';
 
 export class BitrixReadOnlyViolationError extends Error {
@@ -10,8 +10,8 @@ export class BitrixReadOnlyViolationError extends Error {
 }
 
 export class BitrixEntityTypeViolationError extends Error {
-    constructor(entityTypeId: number) {
-        super(`Bitrix Entity Type Violation [${entityTypeId}]: Only Leads (1), Deals (2), and Contacts (3) are allowed.`);
+    constructor(entityTypeId: number | string) {
+        super(`Bitrix Entity Type Violation [${entityTypeId}]: Only Leads (1), Deals (2), Contacts (3), and Quotes (7) are allowed.`);
         this.name = 'BitrixEntityTypeViolationError';
     }
 }
@@ -22,15 +22,25 @@ export const callBitrixReadOnly = async <T = any>(method: string, params: Record
         throw new BitrixReadOnlyViolationError(method, 'Method is not in the strict read-only whitelist.');
     }
 
-    // 2. Enforce entityTypeId restrictions for CRM methods
-    if (method.startsWith('crm.item.')) {
-        const entityTypeId = Number(params.entityTypeId);
-        if (!isNaN(entityTypeId) && !ALLOWED_CRM_ENTITY_TYPES.has(entityTypeId)) {
+    // 2. Enforce entityTypeId restrictions for every entity-scoped CRM method
+    if (ENTITY_SCOPED_METHODS.has(method as any)) {
+        const rawEntityTypeId = params.entityTypeId;
+        if (rawEntityTypeId === undefined || rawEntityTypeId === null || rawEntityTypeId === '') {
+            throw new BitrixEntityTypeViolationError('missing');
+        }
+        const entityTypeId = Number(rawEntityTypeId);
+        if (!Number.isInteger(entityTypeId) || !ALLOWED_CRM_ENTITY_TYPES.has(entityTypeId)) {
             throw new BitrixEntityTypeViolationError(entityTypeId);
         }
     }
 
-    // 3. For activities or items, sanitize select fields
+    // 3. Bitrix quirk: crm.item.list returns every item as an empty array ([]) when the legacy
+    // useOriginalUfNames flag is present. Strip it so callers cannot break the response shape.
+    if (method === 'crm.item.list' && 'useOriginalUfNames' in params) {
+        delete params.useOriginalUfNames;
+    }
+
+    // 4. For activities or items, sanitize select fields
     if (params.select && Array.isArray(params.select)) {
         params.select = sanitizeSelectFields(params.select);
     }

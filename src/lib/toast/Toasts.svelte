@@ -6,7 +6,7 @@
   </script>
 
 <div aria-live="polite" aria-atomic="true" class="position-relative">
-    <div class="toast-container position-fixed top-0 end-0 px-3 pt-5 mt-5 gap-2" id="toastContainer">
+    <div class="toast-container position-fixed top-0 end-0 px-3 mt-3 me-2" id="toastContainer">
         {#each $toasts as toast (toast.id)}
             <div animate:flip in:fly={{ y: -25 }} out:fly={{ x: 100 }}>
                 <Toast {toast} />
