@@ -269,30 +269,91 @@ export const registerHighLevelTools = (server: any) => {
                 filter.RESPONSIBLE_ID = responsibleId;
             }
 
-            const tasks = await fetchBitrixPaginatedReadOnly(
-                'tasks.task.list',
-                { filter, select: ['ID', 'TITLE', 'DEADLINE', 'RESPONSIBLE_ID', 'STATUS', 'REAL_STATUS', 'UF_CRM_TASK'] },
-                1000
-            );
+            let source = 'tasks.task.list';
+            let warning: string | undefined;
+            let tasks: any[];
+
+            try {
+                tasks = await fetchBitrixPaginatedReadOnly(
+                    'tasks.task.list',
+                    { filter, select: ['ID', 'TITLE', 'DEADLINE', 'RESPONSIBLE_ID', 'STATUS', 'REAL_STATUS', 'UF_CRM_TASK'] },
+                    1000
+                );
+            } catch (err: any) {
+                // Fallback: the incoming webhook may not hold the `task` scope (401 insufficient_scope).
+                // CRM-bound tasks are still readable through crm.activity.list with the CRM_TASKS_TASK provider,
+                // which carries subject, deadline, responsible and completion state.
+                const isScopeIssue = /insufficient_scope|status code 401/i.test(err?.message || '');
+                if (!isScopeIssue) throw err;
+
+                const activityFilter: Record<string, any> = {
+                    PROVIDER_ID: 'CRM_TASKS_TASK',
+                    COMPLETED: 'N',
+                    '<DEADLINE': nowIso
+                };
+                if (responsibleId) activityFilter.RESPONSIBLE_ID = responsibleId;
+
+                tasks = await fetchBitrixPaginatedReadOnly(
+                    'crm.activity.list',
+                    {
+                        filter: activityFilter,
+                        select: ['ID', 'OWNER_TYPE_ID', 'OWNER_ID', 'SUBJECT', 'DEADLINE', 'RESPONSIBLE_ID', 'COMPLETED', 'ASSOCIATED_ENTITY_ID'],
+                        order: { DEADLINE: 'asc' }
+                    },
+                    3000
+                );
+                source = 'crm.activity.list';
+                warning = 'tasks.task.list is unavailable (webhook lacks the "task" scope). Showing CRM-bound tasks via crm.activity.list (CRM_TASKS_TASK provider) — tasks not linked to a CRM entity are not included.';
+            }
 
             const today = new Date();
-            const enriched = tasks.map((t: any) => {
+            const enriched: any[] = tasks.map((t: any) => {
                 const deadline = t.deadline || t.DEADLINE;
                 const deadlineDate = deadline ? new Date(deadline) : null;
                 const daysOverdue = deadlineDate ? Math.ceil((today.getTime() - deadlineDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                const taskId = t.id || t.ID || t.associatedEntityId || t.ASSOCIATED_ENTITY_ID;
 
                 return {
-                    id: t.id || t.ID,
-                    title: t.title || t.TITLE,
+                    id: taskId,
+                    title: t.title || t.TITLE || t.subject || t.SUBJECT,
                     deadline,
                     daysOverdue,
                     responsibleId: t.responsibleId || t.RESPONSIBLE_ID,
-                    crmBindings: t.ufCrmTask || t.UF_CRM_TASK || []
+                    completed: t.completed ?? t.COMPLETED ?? undefined,
+                    crmBindings: t.ufCrmTask || t.UF_CRM_TASK || (t.OWNER_TYPE_ID
+                        ? [{
+                            entityTypeId: Number(t.OWNER_TYPE_ID),
+                            entityId: Number(t.OWNER_ID),
+                            activityId: Number(t.ID)
+                        }]
+                        : [])
                 };
             });
 
+            // Resolve responsible user names (explicit select keeps RODO-sensitive photo/email fields out)
+            const responsibleIds = [...new Set(enriched.map(t => Number(t.responsibleId)).filter(id => !!id))];
+            if (responsibleIds.length > 0) {
+                try {
+                    const users = await callBitrixReadOnly('user.get', {
+                        filter: { ID: responsibleIds },
+                        select: ['ID', 'NAME', 'LAST_NAME']
+                    });
+                    const nameById = new Map<string, string>(
+                        (users?.result || []).map((u: any) => [String(u.ID), `${u.NAME || ''} ${u.LAST_NAME || ''}`.trim()])
+                    );
+                    for (const task of enriched) {
+                        task.responsibleName = nameById.get(String(task.responsibleId)) || null;
+                    }
+                } catch {
+                    // Name enrichment is best-effort; never fail the task listing because of it.
+                }
+            }
+
             return {
-                content: [{ type: 'text', text: JSON.stringify({ count: enriched.length, tasks: enriched }, null, 2) }]
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({ source, warning, count: enriched.length, tasks: enriched }, null, 2)
+                }]
             };
         }
     );

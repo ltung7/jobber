@@ -1,0 +1,36 @@
+FROM node:24-alpine AS builder
+
+WORKDIR /app
+
+# Install esbuild directly
+RUN npm install esbuild@0.24.0
+
+# Copy source files needed for build
+COPY package.json ./
+COPY scripts/build-trello-mcp-runner.mjs ./scripts/build-trello-mcp-runner.mjs
+COPY src/trello-mcp-runner.ts ./src/trello-mcp-runner.ts
+COPY src/lib/server/mcp/trello ./src/lib/server/mcp/trello
+COPY src/lib/server/mcp/bitrix/auth.ts ./src/lib/server/mcp/bitrix/auth.ts
+COPY src/lib/server/mcp/bitrix/config.ts ./src/lib/server/mcp/bitrix/config.ts
+COPY src/lib/server/db/firebase/trelloMcpLog.fdb.ts ./src/lib/server/db/firebase/trelloMcpLog.fdb.ts
+COPY src/lib/server/db/firebase/firebase.ts ./src/lib/server/db/firebase/firebase.ts
+COPY src/lib/utils/isDev.ts ./src/lib/utils/isDev.ts
+
+RUN node scripts/build-trello-mcp-runner.mjs
+
+FROM node:24-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV CLOUD_RUN_REGION=europe-west1
+
+# Copy generated 37KB bundle and minimal package.json
+COPY --from=builder /app/dist-trello-mcp/package.json ./package.json
+COPY --from=builder /app/dist-trello-mcp/server.mjs ./server.mjs
+
+RUN npm install --omit=dev --legacy-peer-deps
+
+EXPOSE 8080
+
+CMD ["node", "server.mjs"]

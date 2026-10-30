@@ -116,14 +116,14 @@ Furthermore, the `expiring_documents(days)` high-level MCP tool will check **bot
 
 ## 2. Context & Architecture Decisions
 
-### 2.1. Hosting & Deployment Architecture (Minimal Standalone MCP Runner on Google Cloud Run `europe-central2` + `bitrix.eisg.pl`)
+### 2.1. Hosting & Deployment Architecture (Minimal Standalone MCP Runner on Google Cloud Run `europe-west1` + `bitrix.eisg.pl`)
 - **Why Minimal Standalone Runner (Not the Whole SvelteKit Project):**
   - Instead of building or shipping the entire SvelteKit web application into the Cloud Run container, we use a dedicated **minimal standalone MCP runner** (`src/mcp-runner.ts`) compiled via `esbuild` (`scripts/build-mcp-runner.mjs`) into a single **~38 KB ESM bundle (`dist-mcp/server.mjs`)**.
   - `Dockerfile.mcp` copies **only** `src/mcp-runner.ts`, `src/lib/server/mcp/bitrix/*`, and the Firestore audit logger (`src/lib/server/db/firebase/bitrixMcpLog.fdb.ts` + `firebase.ts`). It does **not** copy `src/routes`, `src/components`, `static`, or run `vite build`.
   - The production container installs **only 4 runtime dependencies** (`@modelcontextprotocol/sdk`, `axios`, `firebase-admin`, `zod`) and exposes **only** the MCP & OAuth endpoints (`/mcp`, `/mcp/:token`, `/.well-known/oauth-authorization-server`, `/oauth/authorize`, `/oauth/token`, and `/health`).
-  - Deployed to **Google Cloud Run** (`service: bitrix-mcp`, region: **`europe-central2`** Warsaw) in GCP project `eisg-fleet` and bound to `https://bitrix.eisg.pl`.
+  - Deployed to **Google Cloud Run** (`service: bitrix-mcp`, region: **`europe-west1`** — see §5.1; the plan originally targeted `europe-central2`, but the live service, image registry and Cloud Build config all run in `europe-west1`) in GCP project `eisg-fleet` and bound to `https://bitrix.eisg.pl`.
 - **Environment Variable Strategy:**
-  - Uses `BITRIX24_WEBHOOK_URL` from `.env` (`process.env.BITRIX24_WEBHOOK_URL`), which holds the incoming Bitrix24 webhook with `crm`, `task`, `user` scopes.
+  - Uses `BITRIX24_WEBHOOK_URL` from `.env` (`process.env.BITRIX24_WEBHOOK_URL`), which holds the incoming Bitrix24 webhook with `crm`, `task`, `user` scopes (`task` is a separate scope and easy to miss — see §2.5 and Step 0 in §8.1).
   - Uses `MCP_SECRET_TOKEN` (64-character cryptographic hex token) and `MCP_OAUTH_CLIENT_SECRET` in `.env` / Google Cloud Run environment variables.
 
 ### 2.2. Strict Read-Only Enforcement & GDPR/RODO Sanitization
@@ -175,6 +175,20 @@ Following the exact pattern in `src/lib/server/db/firebase/template.fdb.ts`:
   - `what` (`toolName`, `bitrixMethodsCalled`, `params` sanitized, `resultSummary` / `recordCount`, `status`: `'SUCCESS' | 'BLOCKED' | 'ERROR'`)
   - `when` (`createdAt` ISO timestamp, `durationMs`)
 
+### 2.5. Live Findings: Task Reading & Webhook Scopes (2026-10-29)
+Production testing showed that **tasks were unreadable** even though the MCP tool was correctly registered and whitelisted. Root cause and hardening (all verified live against `https://bitrix.eisg.pl` and the raw webhook):
+
+1. **Root cause — missing `task` scope on the incoming webhook.**
+   - `tasks.task.list`, `tasks.task.get` and `task.commentitem.getlist` returned HTTP `401` with `{"error":"insufficient_scope","error_description":"The request requires higher privileges than provided by the webhook token"}`, while `crm.*`, `user.get` and `profile` returned `200`.
+   - The webhook `https://eisg.bitrix24.pl/rest/1/o0a54hervvwqx6tk/` (owner: Michał Tlałka, ID `1`, admin) was created with `crm` + `user` only. **`task` is a separate scope** and must be ticked explicitly in *Developer resources → Other → Incoming webhook → edit*.
+   - Resolution: the scope was added by the portal admin; no token/URL or `.env`/Cloud Run change was needed, and no redeploy was required. `tasks.task.list` → `200`, `tasks.task.get` → `200`.
+2. **Two client bugs found while diagnosing (fixed and deployed in revision `bitrix-mcp-00005-x8g`):**
+   - **Lost error detail:** axios throws on non-2xx *before* the `data.error` branch runs, so every failure surfaced as `Request failed with status code 401`. `callBitrixReadOnly` now reads `err.response.data` and throws `Bitrix REST Error [insufficient_scope]: … — the incoming webhook used by BITRIX24_WEBHOOK_URL lacks the required scope …`. This makes scope/permission problems self-diagnosing.
+   - **Wrong response shape for tasks:** `fetchBitrixPaginatedReadOnly` only understood `result.items` / `result[]`, but `tasks.task.list` returns `{ result: { tasks: [...] } }`, so it collapsed the whole page into a single bogus record. `result.tasks` is now handled.
+3. **Defensive fallback in `overdue_tasks`.** When `tasks.task.list` is scope-blocked (401 / `insufficient_scope`), the tool falls back to `crm.activity.list` with `filter: { PROVIDER_ID: 'CRM_TASKS_TASK', COMPLETED: 'N', '<DEADLINE': <now> }`, which is covered by the `crm` scope and returns CRM-bound tasks with `SUBJECT`, `DEADLINE`, `RESPONSIBLE_ID`, `COMPLETED`, `ASSOCIATED_ENTITY_ID` (task ID) and `OWNER_TYPE_ID`/`OWNER_ID` (Lead/Deal/Contact/Quote). The response then carries `source: "crm.activity.list"` plus a `warning` explaining the limitation (non-CRM tasks are not included). With the scope granted, the tool uses `source: "tasks.task.list"` and the fallback stays dormant.
+4. **Live verification after the scope fix:** `overdue_tasks({person:"DK"})` → `source: "tasks.task.list"`, 6 tasks (sample: `{ id: "1370", daysOverdue: 7, crmBindings: ["L_418"], responsibleName: "Dhan Karki" }`); `overdue_tasks({})` → 59 overdue tasks (Ramod 49, DK 6, Michał 2, Darya 1) versus 58 via the CRM-only fallback, confirming non-CRM tasks are now visible.
+5. **Open RODO nit (accepted, not fixed):** `tasks.task.list` returns `responsible.icon` / `responsible.link` (avatar and profile URLs) as plain strings, which the current sanitizer does not redact. Tracked as a follow-up; it does not affect CRM payloads.
+
 ---
 
 ## 3. Affected Files
@@ -195,12 +209,14 @@ Following the exact pattern in `src/lib/server/db/firebase/template.fdb.ts`:
 13. `src/routes/oauth/token/+server.ts` — OAuth 2.0 token exchange endpoint.
 14. `scripts/bitrix-provision-fields.ts` — Standalone admin CLI script to create the missing document validity date fields on Bitrix Contacts (`crm.contact.userfield.add`) and verify their IDs.
 15. `src/mcp-runner.ts` & `scripts/build-mcp-runner.mjs` — Minimal standalone Node HTTP server entry point and `esbuild` bundler producing a 38 KB standalone `dist-mcp/server.mjs` with only 4 runtime dependencies (excluding the rest of the SvelteKit app).
-16. `Dockerfile.mcp` & `cloudbuild.mcp.yaml` — Minimal container and Cloud Build configuration for deploying `dist-mcp/server.mjs` to Google Cloud Run (`europe-central2`) and binding `bitrix.eisg.pl`.
+16. `Dockerfile.mcp` & `cloudbuild.mcp.yaml` — Minimal container and Cloud Build configuration for deploying `dist-mcp/server.mjs` to Google Cloud Run (`europe-west1`, see §5.1) and binding `bitrix.eisg.pl`.
 17. `src/lib/server/mcp/bitrix/__tests__/mcp-bitrix.test.ts` — Unit & integration test suite verifying read-only guardrails, RODO sanitization, Firestore logging, and high-level tool calculations.
 
 ### Files to Edit:
 1. `package.json` — Add `@modelcontextprotocol/sdk` and `zod` dependencies, plus `mcp:provision-fields` and `mcp:deploy` scripts.
 2. `.env.example` (or `.env`) — Document `BITRIX24_WEBHOOK_URL`, `MCP_SECRET_TOKEN`, `MCP_OAUTH_CLIENT_ID`, and `MCP_OAUTH_CLIENT_SECRET`.
+3. `src/lib/server/mcp/bitrix/client.ts` *(2026-10-29)* — Bitrix error surfacing (`insufficient_scope` + scope hint) and `result.tasks` pagination support (see §2.5, Task 3.4).
+4. `src/lib/server/mcp/bitrix/tools.highlevel.ts` *(2026-10-29)* — `overdue_tasks` scope fallback via `crm.activity.list`, unified normalization, `responsibleName` enrichment, `source` / `warning` in the response (see §2.5, Task 4.4).
 
 ---
 
@@ -277,6 +293,8 @@ export const findBitrixMcpLogs = async <T = BitrixMcpAuditLog>(
     - File/attachment keys: `PHOTO`, `photo`, `FILES`, `files`, `WEBDAV_ELEMENTS`, `webdavElements`, `STORAGE_ELEMENT_IDS`, `storageElementIds`.
     - Portal credentials on Deals: `UF_CRM_1787749528909` (Trusted profile login), `UF_CRM_1787749544391` (Trusted profile password), `UF_CRM_1787751004012` (Login), `UF_CRM_1787751012720` (Password), `ufCrm1787749528909`, `ufCrm1787749544391`, `ufCrm1787751004012`, `ufCrm1787751012720`.
     - Dynamic file detection: Any object value containing `{ showUrl, downloadUrl }` or `{ urlMachine, url }` is replaced with `"[REDACTED_FILE_RODO]"`.
+- **Error Surfacing (live fix 2026-10-29)**: Axios throws on non-2xx responses, so the `data.error` branch never runs on HTTP failures. `callBitrixReadOnly` now reads `err.response.data` and rethrows `Bitrix REST Error [<error>]: <error_description>`, appending a webhook-scope hint for `insufficient_scope`. Without this, every permission problem looked like a generic `status code 401`.
+- **Pagination Shapes (live fix 2026-10-29)**: `fetchBitrixPaginatedReadOnly` understands `result[]`, `result.items`, and `result.tasks` (`tasks.task.list` wraps its page in `{ result: { tasks: [...] } }`; missing that key collapsed the entire page into one bogus record).
 
 ### 4.3. Low-Level Bitrix Tools (`src/lib/server/mcp/bitrix/tools.lowlevel.ts`)
 Based on the official Bitrix24 REST API documentation:
@@ -306,6 +324,8 @@ Based on the official Bitrix24 REST API documentation:
 8. **`tasks_task_list`**:
    - Calls `tasks.task.list`.
    - Inputs: `filter` (optional object, e.g., `{ RESPONSIBLE_ID: 14, '<=DEADLINE': '2026-10-21T23:59:59', '!REAL_STATUS': 5 }`), `order` (optional object), `select` (optional string array), `start` (optional number).
+   - **Response shape:** `{ "result": { "tasks": [ { "id", "title", "deadline", "responsibleId", "status", "ufCrmTask", ... } ] } }` — camelCase fields, task page nested under `result.tasks`.
+   - **Webhook scope:** requires the `task` scope on `BITRIX24_WEBHOOK_URL`; otherwise Bitrix answers `401 insufficient_scope` (see §2.5). The tool passes that error through verbatim instead of masking it.
 9. **`user_get`**:
    - Calls `user.get`.
    - Inputs: `filter` (optional object, e.g., `{ ACTIVE: true, ID: [14, 16, 18] }`), `sort`, `order`.
@@ -361,7 +381,9 @@ Based on the official Bitrix24 REST API documentation:
 - **Execution Logic:**
   1. Resolves user alias map (`"ramod" -> 14`, `"dk" | "dhan" | "karki" -> 16`, `"darya" -> 18`, `"michał" | "michal" -> 1`, `"task manager" | "legalizacja" -> 26`) or dynamic lookup via `user.get`.
   2. Calls `tasks.task.list` with filter `{ '<DEADLINE': new Date().toISOString(), '!REAL_STATUS': 5 }` (and `RESPONSIBLE_ID` if `person` specified).
-  3. Enriches tasks with `UF_CRM_TASK` bindings (e.g. `L_123` Lead, `D_456` Deal, `C_789` Contact), days overdue, deadline, title, and responsible user name.
+  3. **Scope fallback (added 2026-10-29):** if `tasks.task.list` fails with `401` / `insufficient_scope` (webhook without the `task` scope), it retries via `crm.activity.list` with `filter: { PROVIDER_ID: 'CRM_TASKS_TASK', COMPLETED: 'N', '<DEADLINE': <now> }` (+ `RESPONSIBLE_ID` when a person is given). This path is covered by the `crm` scope and returns CRM-bound tasks only.
+  4. Enriches tasks with `UF_CRM_TASK` bindings (e.g. `L_123` Lead, `D_456` Deal, `C_789` Contact) — or synthesized `{ entityTypeId, entityId, activityId }` objects in fallback mode — plus `daysOverdue`, `deadline`, `title`, `completed`, `responsibleId` and `responsibleName` (resolved via `user.get` with `select: ['ID','NAME','LAST_NAME']`, best-effort).
+  5. Returns `{ source: 'tasks.task.list' | 'crm.activity.list', warning?, count, tasks[] }` so the caller always knows which path produced the data and why.
 
 #### 5. `find_contact(query)`
 - **Purpose:** Fast unified person search across Contacts (`entityTypeId: 3`), Leads (`entityTypeId: 1`), and Deals (`entityTypeId: 2`) by name, surname, or phone number.
@@ -409,12 +431,12 @@ Based on the official Bitrix24 REST API documentation:
 
 ---
 
-## 5. Google Cloud Run (`europe-central2`) & Subdomain (`bitrix.eisg.pl`) Binding Architecture
+## 5. Google Cloud Run (`europe-west1`) & Subdomain (`bitrix.eisg.pl`) Binding Architecture
 
 ### 5.1. Cloud Run Service Configuration (Minimal Runner)
 - **GCP Project:** `eisg-fleet` (same project hosting App Engine `manage.eisg.pl` / `jobs.eisg.pl` and Firestore).
 - **Service Name:** `bitrix-mcp`
-- **Region:** **`europe-central2`** (Warsaw, Poland) or `europe-west1` (Belgium, supporting direct Cloud Run Domain Mappings).
+- **Region:** **`europe-west1`** (Belgium) — this is what `cloudbuild.mcp.yaml` actually deploys to and what the live service reports (`bitrix-mcp-316084914720.europe-west1.run.app`). `europe-central2` (Warsaw) remains an option only if Cloud Run domain mapping is not required, since direct domain mappings are not available in every region.
 - **Container Footprint:** Uses `Dockerfile.mcp` + `scripts/build-mcp-runner.mjs` to bundle **only** `src/mcp-runner.ts` (`~40 KB`) and 4 runtime dependencies (`@modelcontextprotocol/sdk`, `axios`, `firebase-admin`, `zod`). No SvelteKit UI routes, components, or unrelated packages are included in the container.
 - **Service Account & Firestore/Auth Access:** Uses the default service account in `eisg-fleet` so `firebase-admin` can both verify Firebase Auth ID tokens (`admin.auth().verifyIdToken`) and write audit logs to Firestore (`bitrixMcpLog.fdb.ts`) with zero extra credential files needed in Cloud Run.
 
@@ -447,6 +469,7 @@ To bind `https://bitrix.eisg.pl` to the `bitrix-mcp` service:
 - [x] **Task 3.1:** Create `src/lib/server/mcp/bitrix/config.ts` containing the immutable `ALLOWED_BITRIX_METHODS` whitelist, `ALLOWED_CRM_ENTITY_TYPES` (`1, 2, 3, 7`), RODO blocked field keys, user aliases (`Ramod=14`, `DK=16`, `Darya=18`, `Michał=1`), and stage/source dictionaries.
 - [x] **Task 3.2:** Create `src/lib/server/mcp/bitrix/sanitizer.ts` with `sanitizeSelectFields(select)` and `sanitizeBitrixPayload(data)` to strip all file objects, scan URLs, `PHOTO`, `FILES`, and portal logins/passwords.
 - [x] **Task 3.3:** Create `src/lib/server/mcp/bitrix/client.ts` implementing `callBitrixReadOnly(method, params)` and `fetchBitrixPaginatedReadOnly(method, params, maxRecords)` using `BITRIX24_WEBHOOK_URL` from `.env`, throwing `BitrixReadOnlyViolationError` on any non-whitelisted method.
+- [x] **Task 3.4 (2026-10-29 fix):** Surface Bitrix API errors from `err.response.data` (`insufficient_scope` + scope hint instead of a bare `status code 401`), and teach `fetchBitrixPaginatedReadOnly` the `tasks.task.list` shape `{ result: { tasks: [...] } }`.
 
 ### Phase 4: Low-Level & High-Level MCP Tools
 - [x] **Task 4.1:** Create `src/lib/server/mcp/bitrix/tools.lowlevel.ts` registering the 9 whitelisted Bitrix tools (`crm_item_list`, `crm_item_get`, `crm_item_fields`, `crm_category_list`, `crm_status_list`, `crm_stagehistory_list`, `crm_activity_list`, `tasks_task_list`, `user_get`).
@@ -457,6 +480,7 @@ To bind `https://bitrix.eisg.pl` to the `bitrix-mcp` service:
   - `overdue_tasks(person)`
   - `find_contact(query)`
 - [x] **Task 4.3:** Create `src/lib/server/mcp/bitrix/server.ts` instantiating the `McpServer`, wrapping every tool execution with timing, error catching, RODO output sanitization, and `setBitrixMcpLog` / `addBitrixMcpLog` audit logging to Firestore.
+- [x] **Task 4.4 (2026-10-29 fix):** Harden `overdue_tasks` — primary `tasks.task.list` path, `crm.activity.list` (`PROVIDER_ID: 'CRM_TASKS_TASK'`) fallback on `insufficient_scope`, unified task normalization (`crmBindings`, `daysOverdue`, `completed`), best-effort `responsibleName` via `user.get`, and `source` / `warning` in the response.
 
 ### Phase 5: Firebase Authentication (Google OAuth 2.0 + Email/Password) & Streamable HTTP Runner
 - [x] **Task 5.1:** Update `src/lib/server/mcp/bitrix/auth.ts` to add `createSignedOAuthCode`, `verifySignedOAuthCode`, `createSignedMcpAccessToken`, `verifySignedMcpAccessToken`, PKCE `S256` verification, and update `verifyMcpRequest` to validate both HMAC-signed Firebase user tokens (`mcp_u_...`) and the static `MCP_SECRET_TOKEN`.
@@ -470,6 +494,8 @@ To bind `https://bitrix.eisg.pl` to the `bitrix-mcp` service:
 ### Phase 6: Cloud Run Deployment & Subdomain Mapping
 - [x] **Task 6.1:** Create `Dockerfile.mcp` (copying and bundling ONLY the minimal MCP runner files into `dist-mcp/server.mjs` with 4 runtime dependencies) and `cloudbuild.mcp.yaml`.
 - [x] **Task 6.2:** Run `npm run mcp:deploy` (`gcloud builds submit --config=cloudbuild.mcp.yaml --project=eisg-fleet`) to deploy the updated Firebase Auth OAuth flow to Google Cloud Run (`service: bitrix-mcp`).
+- [x] **Task 6.3 (2026-10-29 fix):** Rebuild `dist-mcp/server.mjs` and redeploy after the task-reading fixes — Cloud Build `7551af77`, revision **`bitrix-mcp-00005-x8g`** serving 100% traffic in `europe-west1`. Verified `overdue_tasks` end-to-end (fallback mode before the scope grant, primary mode after). Noted: the deploy logs a harmless `Setting IAM policy failed` warning (allUsers invoker binding must be granted by the project owner).
+- [x] **Task 6.4 (2026-10-29, portal-side):** Add the **`task`** scope to the incoming webhook in Bitrix24 (Developer resources → Other → Incoming webhook → edit). Token/URL unchanged, so no `.env` or Cloud Run env update was needed; `tasks.task.list` and `tasks.task.get` now return `200`.
 
 ---
 
@@ -488,6 +514,7 @@ The implementation must pass all of the following automated and manual verificat
    - **Firebase OAuth & Token Verification:** Unverified emails or forged Bearer tokens are rejected (`401`/`403`); valid HMAC-signed tokens issued after `admin.auth().verifyIdToken` authenticate with the user's verified `@eisg.pl` / `@finnergroup.com` email.
    - **Firestore Audit Logging:** Every tool execution calls `setBitrixMcpLog` / `addBitrixMcpLog` with `accountId` (verified user email), `toolName`, `bitrixMethods`, `params`, `durationMs`, and `createdAt`.
    - **High-Level Tools:** `order_fill`, `funnel_stats`, `expiring_documents`, `overdue_tasks`, and `find_contact` return valid structured JSON matching live Bitrix24 schemas.
+   - **Task Reading & Scope Handling:** `tasks_task_list` returns Bitrix' own error (`insufficient_scope`) rather than a generic 401; `fetchBitrixPaginatedReadOnly('tasks.task.list', …)` returns every task in `result.tasks` (not one collapsed record); `overdue_tasks` reports `source: 'tasks.task.list'` with the scope granted and `source: 'crm.activity.list'` + `warning` without it.
 
 2. **Standalone MCP Bundle Build Check:**
    ```powershell
@@ -502,11 +529,32 @@ The implementation must pass all of the following automated and manual verificat
      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"claude-test","version":"1.0.0"}}}'
    ```
 
+4. **Live Task Read Smoke Test (verified 2026-10-29):**
+   - Raw webhook pre-check (fastest way to tell a scope problem from an MCP problem):
+     ```powershell
+     curl -s -X POST "$env:BITRIX24_WEBHOOK_URL/tasks.task.list" `
+       -H "Content-Type: application/json" -d '{"select":["ID","TITLE","DEADLINE"]}'
+     # 200 + {"result":{"tasks":[...]}}  -> scope OK
+     # 401 {"error":"insufficient_scope"} -> add the "task" scope to the webhook (§2.5, Task 6.4)
+     ```
+   - MCP level: `tasks_task_list` returns `{ result: { tasks: [...] } }`; `overdue_tasks({person:"DK"})` returns `source: "tasks.task.list"` (not the fallback) with `responsibleName` and `crmBindings` populated.
+   - Regression guard: temporarily filter `PROVIDER_ID: 'CRM_TASKS_TASK'` through `crm_activity_list` to confirm the fallback path still works if the scope is ever removed.
+
 ---
 
 ## 8. Manual Setup & Client Integration Instructions
 
 ### 8.1. Manual Steps Required From You (Cannot Be Run via CLI)
+
+#### Step 0: Verify Incoming Webhook Scopes (`crm`, `task`, `user`) (1 minute)
+The MCP depends on the permissions baked into the incoming webhook in `BITRIX24_WEBHOOK_URL`. **`task` is a separate scope from `crm`** — without it every task tool fails with `401 insufficient_scope` (this happened live, see §2.5):
+1. Bitrix24 → **Developer resources** → **Other** → **Incoming webhook** → edit `.../rest/1/o0a54hervvwqx6tk/`.
+2. Ensure **CRM**, **Tasks** and **Users** are ticked, save. The token/URL does not change, so no `.env` or Cloud Run env update is needed.
+3. Verify instantly:
+   ```powershell
+   curl -s -X POST "$env:BITRIX24_WEBHOOK_URL/tasks.task.list" -H "Content-Type: application/json" -d '{"select":["ID","TITLE"]}'
+   ```
+   `200` + `{"result":{"tasks":[...]}}` = OK; `401 insufficient_scope` = scope still missing.
 
 #### Step 1: Authorize `bitrix.eisg.pl` in Firebase Authentication Console (1 minute)
 Because the `/oauth/authorize` login page runs on `https://bitrix.eisg.pl` and opens the Google Sign-In popup via Firebase Auth, Firebase requires `bitrix.eisg.pl` to be listed in its **Authorized domains**:

@@ -65,6 +65,15 @@ export const callBitrixReadOnly = async <T = any>(method: string, params: Record
         if (err instanceof BitrixReadOnlyViolationError || err instanceof BitrixEntityTypeViolationError) {
             throw err;
         }
+        // Axios throws on non-2xx responses, so surface Bitrix' own error code/description
+        // (e.g. `insufficient_scope`) instead of the generic "status code 401".
+        const apiError = err?.response?.data;
+        if (apiError && apiError.error) {
+            const scopeHint = apiError.error === 'insufficient_scope'
+                ? ' — the incoming webhook used by BITRIX24_WEBHOOK_URL lacks the required scope (add "task" / "crm" / "user" permissions in Bitrix24 and update the env var).'
+                : '';
+            throw new Error(`Bitrix REST Error [${apiError.error}]: ${apiError.error_description || 'Unknown error'}${scopeHint}`);
+        }
         throw new Error(`Bitrix API call failed for ${method}: ${err.message || err}`);
     }
 };
@@ -88,6 +97,9 @@ export const fetchBitrixPaginatedReadOnly = async <T = any>(
                 batchItems = res.result;
             } else if (res.result.items && Array.isArray(res.result.items)) {
                 batchItems = res.result.items;
+            } else if (res.result.tasks && Array.isArray(res.result.tasks)) {
+                // tasks.task.list returns { result: { tasks: [...] } }
+                batchItems = res.result.tasks;
             } else if (typeof res.result === 'object') {
                 // Some methods return object map or single result
                 batchItems = [res.result];

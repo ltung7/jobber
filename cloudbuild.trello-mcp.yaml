@@ -1,0 +1,20 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/trello-card-assignment-mcp:latest', '-f', 'Dockerfile.trello-mcp', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/trello-card-assignment-mcp:latest']
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'trello-card-assignment-mcp'
+      - '--image=europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/trello-card-assignment-mcp:latest'
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--min-instances=0'
+      - '--max-instances=5'
+      - '--set-env-vars=TRELLO_API_KEY=7e39cd5519f2f33fda3c0a60f2531bb0,TRELLO_TOKEN=ATTA76edc48f7524a1400f2971632e7b144fc385ed88dced1f056aafb34d8a44437123810376,MCP_SECRET_TOKEN=fefd98378da236c1990ba71f5612299e6e8083cb65e62a76c8cb15bbfa5c6891,TRELLO_MCP_SECRET_TOKEN=fefd98378da236c1990ba71f5612299e6e8083cb65e62a76c8cb15bbfa5c6891,MCP_OAUTH_CLIENT_ID=finner-trello-card-assignment-mcp,MCP_OAUTH_CLIENT_SECRET=497156171ee5ad92814a302bb0a3c89ff37b465584171a9f'
+images:
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/trello-card-assignment-mcp:latest'

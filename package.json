@@ -1,7 +1,7 @@
 {
 	"name": "juliette",
 	"private": true,
-	"version": "0.0.29",
+	"version": "0.0.30",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev --port 5173",
@@ -15,7 +15,11 @@
 		"mcp:build": "node scripts/build-mcp-runner.mjs",
 		"mcp:start": "node scripts/build-mcp-runner.mjs && node dist-mcp/server.mjs",
 		"mcp:provision-fields": "npx tsx scripts/bitrix-provision-fields.ts",
-		"mcp:deploy": "gcloud builds submit --config=cloudbuild.mcp.yaml --project=eisg-fleet"
+		"mcp:deploy": "gcloud builds submit --config=cloudbuild.mcp.yaml --project=eisg-fleet",
+		"mcp:trello:build": "node scripts/build-trello-mcp-runner.mjs",
+		"mcp:trello:start": "node scripts/build-trello-mcp-runner.mjs && node dist-trello-mcp/server.mjs",
+		"mcp:trello:deploy": "gcloud builds submit --config=cloudbuild.trello-mcp.yaml --project=eisg-fleet",
+		"hermes": "ssh -i \"$HOME\\.ssh\\smarthost_hermes\" -p 5739 finner@n3.smarthost.pl"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",
