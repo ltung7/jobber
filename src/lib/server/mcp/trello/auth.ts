@@ -26,7 +26,7 @@ export interface McpAccessTokenPayload {
 }
 
 // Allowed email domains for corporate authentication (array syntax preserved for future additions)
-export const ALLOWED_DOMAINS = ['finnergroup.com'];
+export const ALLOWED_DOMAINS = ['finnergroup.com', 'eisg.pl'];
 
 export const isAllowedEmail = (email: string): boolean => {
     if (!email || typeof email !== 'string') return false;

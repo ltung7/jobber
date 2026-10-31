@@ -241,7 +241,7 @@ const server = http.createServer(async (req, res) => {
         <div class="header">
             <span class="logo-badge">TRELLO ASSIGNMENT MCP</span>
             <h2>Sign in to continue</h2>
-            <p class="subtitle">Access restricted to verified accounts from <span class="badge-domains">@finnergroup.com</span></p>
+            <p class="subtitle">Access restricted to verified accounts from <span class="badge-domains">@finnergroup.com</span> and <span class="badge-domains">@eisg.pl</span></p>
         </div>
 
         <div id="error-box" class="error-box"></div>
@@ -391,7 +391,7 @@ const server = http.createServer(async (req, res) => {
 
                 if (!isAllowedEmail(email)) {
                     res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
-                    res.end(`<h3>Access Denied</h3><p>Email <b>${email}</b> is not authorized. Access is strictly restricted to @finnergroup.com.</p><a href="javascript:history.back()">Back</a>`);
+                    res.end(`<h3>Access Denied</h3><p>Email <b>${email}</b> is not authorized. Access is strictly restricted to @finnergroup.com and @eisg.pl.</p><a href="javascript:history.back()">Back</a>`);
                     return;
                 }
 
@@ -545,7 +545,7 @@ const server = http.createServer(async (req, res) => {
             }
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
-                error: 'Unauthorized. Access restricted to authorized users (@finnergroup.com) with valid Firebase OAuth credentials.'
+                error: 'Unauthorized. Access restricted to authorized users (@finnergroup.com, @eisg.pl) with valid Firebase OAuth credentials.'
             }));
             return;
         }

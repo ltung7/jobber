@@ -14,10 +14,10 @@ import { getMcpSecretToken } from '$lib/server/mcp/trello/config';
 describe('Trello MCP Client & Tools', () => {
     const client = new TrelloClient();
 
-    it('enforces OAuth domain restrictions exclusively to finnergroup.com', () => {
-        expect(ALLOWED_DOMAINS).toEqual(['finnergroup.com']);
+    it('enforces OAuth domain restrictions exclusively to finnergroup.com and eisg.pl', () => {
+        expect(ALLOWED_DOMAINS).toEqual(['finnergroup.com', 'eisg.pl']);
         expect(isAllowedEmail('tomasz.le@finnergroup.com')).toBe(true);
-        expect(isAllowedEmail('someone@eisg.pl')).toBe(false);
+        expect(isAllowedEmail('someone@eisg.pl')).toBe(true);
         expect(isAllowedEmail('hacker@gmail.com')).toBe(false);
     });
 
